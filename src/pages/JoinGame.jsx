@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { firestore } from '../firebase/config';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 
 const JoinGame = () => {
@@ -25,6 +25,8 @@ const JoinGame = () => {
     }
 
     setIsJoining(true);
+    setError(''); // Clear previous errors
+    
     try {
       // Update the user's game status in Firestore
       const userRef = doc(firestore, 'players', currentUser.uid);
@@ -41,28 +43,81 @@ const JoinGame = () => {
     }
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleJoinGame();
+    }
+  };
+
   return (
-    <div className="join-game-container">
-      <h2 className="text-2xl font-bold mb-4">Join the Game</h2>
-      <p>Welcome {currentUser?.email}, enter the PIN to join the game:</p>
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+      <div className="max-w-md w-full">
+        {/* Header Section */}
+        <div className="text-center mb-8">
+          <h2 className="text-4xl font-bold text-white mb-2">Join the Game</h2>
+          <p className="text-gray-400">Welcome to the Game Lobby! Enter the PIN to continue.</p>
+        </div>
+        
+        {/* Join Game Form */}
+        <div className="space-y-6">
+          <div>
+            <input
+              type="text"
+              placeholder="Enter Game PIN"
+              className="w-full px-4 py-3 bg-transparent border-b border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:border-white transition-colors text-center text-lg tracking-widest"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              onKeyPress={handleKeyPress}
+              maxLength="4"
+              required
+            />
+          </div>
 
-      <input
-        type="text"
-        value={pin}
-        onChange={(e) => setPin(e.target.value)}
-        placeholder="Enter PIN"
-        className="p-2 border rounded mb-4"
-      />
+          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
 
-      {error && <p className="text-red-500">{error}</p>}
+          <button
+            onClick={handleJoinGame}
+            disabled={isJoining || !pin}
+            className="w-full py-3 bg-gray-800 text-white font-semibold border border-gray-600 rounded hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isJoining ? 'Joining Game...' : 'Join Game'}
+          </button>
+        </div>
 
-      <button
-        onClick={handleJoinGame}
-        disabled={isJoining}
-        className="bg-blue-600 text-white px-4 py-2 rounded"
-      >
-        {isJoining ? 'Joining...' : 'Join Game'}
-      </button>
+        {/* Divider */}
+        <div className="mt-6">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-600"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-gray-900 text-gray-400">OR</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Links */}
+        <div className="mt-6 text-center space-y-2">
+          <p className="text-gray-400">
+            Don't have the PIN?{' '}
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="text-white hover:underline font-semibold"
+            >
+              Go to Dashboard
+            </button>
+          </p>
+          <p className="text-gray-400">
+            Need to logout?{' '}
+            <button
+              onClick={() => navigate('/login')}
+              className="text-white hover:underline font-semibold"
+            >
+              Back to Login
+            </button>
+          </p>
+        </div>
+      </div>
     </div>
   );
 };

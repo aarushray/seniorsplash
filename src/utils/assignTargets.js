@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDoc, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 
 function shuffleArray(array) {
@@ -9,6 +9,13 @@ function shuffleArray(array) {
 }
 
 const assignTargets = async () => {
+
+  const gameRef = doc(firestore, 'game', 'state');
+  const gameSnap = await getDoc(gameRef);
+  if (!gameSnap.exists() || !gameSnap.data().gameStarted) {
+    throw new Error('Game has not started yet. No targets can be assigned.');
+  }
+
   const querySnapshot = await getDocs(collection(firestore, 'players'));
   const players = [];
   querySnapshot.forEach((docSnap) => {

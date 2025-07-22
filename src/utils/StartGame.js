@@ -1,8 +1,30 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import assignTargets from './assignTargets';
 import { doc, updateDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
+import assignTargets from './assignTargets';
+
+/**
+ * Starts the game by assigning targets and updating game state
+ */
+export async function startGame() {
+  try {
+    // Assign targets to all players
+    
+    // Update game state to started
+    const gameStateRef = doc(firestore, 'game', 'state');
+    await updateDoc(gameStateRef, { 
+      gameStarted: true,
+      gameEnded: false 
+    });
+    await assignTargets();
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to start game:', error);
+    // alert('YASSIGNTARGETS IS ISSUE');
+    throw error;
+  }
+}
 
 const StartGame = () => {
   const { currentUser } = useAuth();
@@ -11,26 +33,18 @@ const StartGame = () => {
   const handleStartGame = async () => {
     try {
       setStatus('Assigning targets...');
-      await assignTargets();
-
-      // This assumes you have a document called 'state' in a collection called 'game'
+      // await assignTargets();
+      console.log('assignTargets finished');
       const gameStateRef = doc(firestore, 'game', 'state');
       await updateDoc(gameStateRef, { gameStarted: true });
-
       setStatus('Game has started! Targets assigned.');
       alert('Game has started! Targets assigned.');
     } catch (error) {
       console.error('Failed to start game:', error);
-      setStatus(error.message || 'Failed to start game. Check console for details.');
-      alert('Failed to start game. Check console for details.');
+      // alert('handlestartgame IS ISSUE');
+      alert(error?.message || JSON.stringify(error) || 'Failed to start game. Check console for details.');
     }
   };
-
-  const isAdmin = currentUser?.email === 'aarushray210207@gmail.com'; // <- Update to your admin's email
-
-  if (!isAdmin) {
-    return <p>You are not authorized to start the game.</p>;
-  }
 
   return (
     <div className="p-4">

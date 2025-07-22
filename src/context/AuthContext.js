@@ -21,6 +21,7 @@ export const AuthProvider = ({ children }) => {
           await setDoc(playerRef, {
             uid: user.uid,
             name: user.displayName || 'Unnamed Player',
+            fullName: user.displayName || 'Unnamed Player',
             email: user.email,
             photoURL: user.photoURL || null,
             createdAt: new Date(),
