@@ -40,7 +40,9 @@ const Register = () => {
         gameJoinedAt: null,
         lastBadgeEarned: null,
         lastBadgeTimestamp: null,
-        createdAt: new Date()
+        createdAt: new Date(),
+        bountyKills: 0,
+        splashes:0
       });
 
       navigate('/particulars');

@@ -8,6 +8,7 @@ import PlayerDashboard from '../components/PlayerDashboard';
 import { getBadgeById } from '../utils/BadgeManager'; 
 import { motion } from "framer-motion"
 import { useSurvivalTime } from '../utils/survivalTime';
+import { useCallback } from 'react';
 
 
 const Dashboard = () => {
@@ -39,15 +40,13 @@ const Dashboard = () => {
   const [allPlayers, setAllPlayers] = useState([]);
   const [localLoading, setLocalLoading] = useState(true);
   const [isPurgeMode, setIsPurgeMode] = useState(false);
-  const [survivalTime, setSurvivalTime] = useState('0');
+  const [survivalTime, setSurvivalTime] = useState('-');
   const [currentLocation, setCurrentLocation] = useState('');
   const [lastKnownLocation, setLastKnownLocation] = useState('');
   const [bountyData, setBountyData] = useState(null);
   const [bountyTimeRemaining, setBountyTimeRemaining] = useState('');
-
-
-
   const [newlyEarnedBadge, setNewlyEarnedBadge] = useState(null);
+
 
   // Add this useEffect to check for new badges
   useEffect(() => {
@@ -110,11 +109,9 @@ useEffect(() => {
   // Effect for Current Player and their Target Data
   useEffect(() => {
     if (!currentUser) {
-      console.log('No current user');
       setLocalLoading(false);
       return;
     }
-    console.log('Setting up player listener for:', currentUser.uid);
 
     let unsubscribeTarget = () => {};
     // Listen for changes to the current player's data
@@ -125,19 +122,15 @@ useEffect(() => {
 
       if (playerDoc.exists()) {
         const data = playerDoc.data();
-        console.log('Player data:', data);
         setPlayerData(data);
 
         if (data.targetId) {
-          console.log('Player has target:', data.targetId);
           const targetRef = doc(firestore, 'players', data.targetId);
           // This nested snapshot will be automatically cleaned up when unsubscribePlayer is called
           unsubscribeTarget = onSnapshot(targetRef, (targetDoc) => {
             if (targetDoc.exists()) {
-              console.log('Target data:', targetDoc.data());
               setTarget(targetDoc.data());
             } else {
-              console.log('Target document does not exist');
               setTarget(null);
             }
           }, (error) => {
@@ -147,12 +140,10 @@ useEffect(() => {
           } else {
             setTarget(null);}
         } else {
-          console.log('Player document does not exist');
           setPlayerData(null); // Player doesn't exist in the collection
         }
         setLocalLoading(false);
       }, (error) => {
-        console.error('Error fetching player data:', error);
         setLocalLoading(false);
       });
 
@@ -165,21 +156,16 @@ useEffect(() => {
 
 // Add this useEffect for Purge Mode listener
 useEffect(() => {
-  console.log('Setting up purge mode listener');
   
   const statusRef = doc(firestore, 'game', 'state');
   
   const unsubscribe = onSnapshot(statusRef, (doc) => {
-    console.log('Purge mode document exists:', doc.exists());
     
     if (doc.exists()) {
       const data = doc.data();
-      console.log('Purge mode document data:', data);
       const purgeMode = data.purgeMode || false;
-      console.log('Setting isPurgeMode to:', purgeMode);
       setIsPurgeMode(purgeMode);
     } else {
-      console.log('No purge mode document found, setting to false');
       setIsPurgeMode(false);
     }
   }, (error) => {
@@ -188,7 +174,6 @@ useEffect(() => {
   });
 
   return () => {
-    console.log('Cleaning up purge mode listener');
     unsubscribe();
   };
 }, []);

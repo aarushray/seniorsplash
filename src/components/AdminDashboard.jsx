@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, addDoc, Timestamp, setDoc, where } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, setDoc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import { endGame } from '../utils/EndGame';
 import { startGame } from '../utils/StartGame';
@@ -9,6 +9,7 @@ import { query, orderBy, onSnapshot, doc } from 'firebase/firestore';
 import { getAssassinsForPlayer } from '../utils/assassinIdentity';
 import { reassignTargetsAfterPurge } from '../utils/reassignTargetsAfterPurge';
 import { handleVerify, handleReject } from '../utils/killProofActions';
+import { updateGamePin, getGamePin, subscribeToGamePin, validateGamePin, generateRandomPin } from '../utils/gamePin';
 
 const AdminDashboard = () => {
   const [killProofs, setKillProofs] = useState([]);
@@ -28,6 +29,40 @@ const AdminDashboard = () => {
   const [bountyPrize, setBountyPrize] = useState('');
   const [bountyDescription, setBountyDescription] = useState('');
   const [bountyStatus, setBountyStatus] = useState('');
+  const [gamePin, setGamePin] = useState('');
+  const [gamePinInput, setGamePinInput] = useState('');
+  const [gamePinLoading, setGamePinLoading] = useState(false);
+
+  useEffect(() => {
+  const unsubscribe = subscribeToGamePin((pin) => {
+    setGamePin(pin || '');
+    setGamePinInput(pin || '');
+  });
+
+  return () => unsubscribe();
+}, []);
+
+  // Add these handler functions
+  const handleGamePinUpdate = async () => {
+    if (!validateGamePin(gamePinInput)) {
+      alert('Game pin must be 4-6 digits');
+      return;
+    }
+
+    setGamePinLoading(true);
+    try {
+      await updateGamePin(gamePinInput);
+      alert('Game pin updated successfully!');
+    } catch (error) {
+      alert('Error updating game pin: ' + error.message);
+    } finally {
+      setGamePinLoading(false);
+    }
+  };
+  const handleGenerateRandomPin = () => {
+    const randomPin = generateRandomPin();
+    setGamePinInput(randomPin);
+  };
 
 
   const handleSetBounty = async () => {
@@ -316,6 +351,59 @@ const handleRemoveBounty = async () => {
           </div>
         </div>
       </div>
+
+
+      <div className="bg-card-bg border border-border-color rounded-xl p-6">
+  <h3 className="text-xl font-bold mb-4 font-heading text-primary-color">
+    🔐 Game Pin Management
+  </h3>
+  
+  <div className="space-y-4">
+    <div>
+      <label className="block text-sm font-medium text-text-secondary mb-2">
+        Current Game Pin: <span className="text-primary-color font-mono text-lg">{gamePin || 'Not Set'}</span>
+      </label>
+    </div>
+    
+    <div className="flex gap-2">
+      <input
+        type="text"
+        value={gamePinInput}
+        onChange={(e) => setGamePinInput(e.target.value)}
+        placeholder="Enter 4-6 digit pin"
+        className="flex-1 px-3 py-2 bg-background border border-border-color rounded-lg 
+                   text-text-primary focus:outline-none focus:ring-2 focus:ring-primary-color/50
+                   font-mono text-center text-lg"
+        maxLength={6}
+        pattern="\d*"
+      />
+      
+      <button
+        onClick={handleGenerateRandomPin}
+        className="px-4 py-2 bg-secondary-color hover:bg-secondary-color/80 
+                   text-white rounded-lg transition-colors duration-200
+                   flex items-center gap-2"
+      >
+        🎲 Random
+      </button>
+    </div>
+    
+    <button
+      onClick={handleGamePinUpdate}
+      disabled={gamePinLoading || !gamePinInput}
+      className="w-full py-2 bg-primary-color hover:bg-primary-color/80 
+                 disabled:bg-gray-600 disabled:cursor-not-allowed
+                 text-white rounded-lg transition-colors duration-200
+                 font-medium"
+    >
+      {gamePinLoading ? 'Updating...' : 'Update Game Pin'}
+    </button>
+    
+    <p className="text-xs text-text-secondary">
+      Game pin must be 4-6 digits. Players will use this to join the game.
+    </p>
+  </div>
+</div>
 
 
   <div>

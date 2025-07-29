@@ -1,6 +1,6 @@
-import { collection, addDoc, Timestamp, setDoc, where } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
-import { query, orderBy, onSnapshot, doc, updateDoc, getDoc, writeBatch, getDocs} from 'firebase/firestore';
+import { query, doc, updateDoc, getDoc, writeBatch, getDocs} from 'firebase/firestore';
 import { badges } from './Badges';
 import { reassignTargets } from './reassignTargets';
 import { createKillAnnouncement } from '../components/Announcements';
@@ -101,7 +101,23 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
       });
       return;
     }
-    
+
+    // Check if victim is bounty
+    const gameRef = doc(firestore, 'game', 'bounty');
+    const gameSnap = await getDoc(gameRef);
+    const gameData = gameSnap.data();
+    const targetName = gameData?.targetName?.toLowerCase() || '';
+
+    // Check if victim is bounty
+    if ( targetName && proof.targetName.toLowerCase() === targetName ) {
+      console.log('Bounty kill detected');
+      const newBountyKills = (killerData.bountyKills || 0) + 1;
+      batch.update(killerRef, {
+        bountyKills: newBountyKills, // ✅ Now actually updates the database
+        lastKillAt: new Date()
+      });
+    }
+
     // Update victim - mark as eliminated and reset their streak
     const victimRef = doc(firestore, 'players', victimId);
     batch.update(victimRef, {
@@ -139,9 +155,6 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
     await createKillAnnouncement(proof, newKillCount, newBadges);
     
     // Check if purge mode
-    const gameRef = doc(firestore, 'game', 'state');
-    const gameSnap = await getDoc(gameRef);
-    const gameData = gameSnap.data();
     const isPurgeMode = gameData?.purgeMode || false;
     
     // Assign new target if not purge mode

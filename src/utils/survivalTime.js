@@ -77,5 +77,5 @@ export const useSurvivalTime = (playerData, setSurvivalTime) => {
       console.log('No gameJoinedAt found, setting survival time to --');
       setSurvivalTime('--');
     }
-  }, [playerData?.gameJoinedAt]);
+  }, [playerData?.gameJoinedAt, setSurvivalTime]);
 };

@@ -1,17 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { firestore } from '../firebase/config';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
+import { getGamePin } from '../utils/gamePin';
 
 const JoinGame = () => {
   const { currentUser } = useAuth();
   const [pin, setPin] = useState('');
   const [error, setError] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const GAME_PIN = '1234';
+  // Check game status on component mount
+  useEffect(() => {
+    const checkGameStatus = async () => {
+      try {
+        const gameRef = doc(firestore, 'game', 'state');
+        const gameDoc = await getDoc(gameRef);
+        
+        if (gameDoc.exists()) {
+          const gameData = gameDoc.data();
+          setGameStarted(gameData.gameStarted || false);
+        }
+      } catch (error) {
+        console.error('Error checking game status:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkGameStatus();
+  }, []);
 
   const handleJoinGame = async () => {
     if (!currentUser){
@@ -19,7 +41,26 @@ const JoinGame = () => {
         return;
     }
 
-    if (pin !== GAME_PIN) {
+    // Double-check game status before allowing join
+    try {
+      const gameRef = doc(firestore, 'game', 'state');
+      const gameDoc = await getDoc(gameRef);
+      
+      if (gameDoc.exists()) {
+        const gameData = gameDoc.data();
+        if (gameData.gameStarted) {
+          setError('Game has already started. You cannot join now.');
+          return;
+        }
+      }
+    } catch (error) {
+      setError('Error checking game status. Please try again.');
+      return;
+    }
+
+    const gamePin = await getGamePin();
+
+    if (pin !== gamePin) {
       setError('Incorrect PIN. Please try again.');
       return;
     }

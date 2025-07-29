@@ -26,7 +26,7 @@ export async function endGame() {
         await updateDoc(doc(firestore, 'players', playerDoc.id), {
             // Core game state
             isAlive: true,
-            isInGame: false,
+            isInGame: true,
             targetId: null,
             
             // Statistics that reset each game
@@ -34,6 +34,7 @@ export async function endGame() {
             splashes: 0,
             purgeKills: 0,
             recentKills: [],
+            bountyKills: 0,
             
             // Proof and verification
             proofs: [],
@@ -62,10 +63,15 @@ export async function endGame() {
             deathMessage: null,
             messageToKiller: null
         });
-        
+
         // TODO: Send in-app or email notification to playerDoc.data().email
     }
     
+    await updateDoc(doc(firestore, 'game', 'state'), {
+      gamePin: null
+    });
+
+
     clearAllPendingKills();
 
     // Clear all announcements
