@@ -1,0 +1,62 @@
+export const getThemeColors = (icon, badgeId) => {
+  // Badge theme colors based on icon and ID
+  const themeMap = {
+    '🩸': { // Blood drop - First Blood
+      glow: 'rgba(220, 38, 127, 0.8)',
+      border: 'rgba(220, 38, 127, 1)',
+      shadow: '0 0 30px rgba(220, 38, 127, 0.6), 0 0 60px rgba(220, 38, 127, 0.4)'
+    },
+    '🌟': { // Star - Triple Threat
+      glow: 'rgba(245, 158, 11, 0.8)',
+      border: 'rgba(245, 158, 11, 1)',
+      shadow: '0 0 30px rgba(245, 158, 11, 0.6), 0 0 60px rgba(245, 158, 11, 0.4)'
+    },
+    '⚔️': { // Swords - Wrath of Ares
+      glow: 'rgba(127, 29, 29, 0.8)',
+      border: 'rgba(127, 29, 29, 1)',
+      shadow: '0 0 30px rgba(127, 29, 29, 0.6), 0 0 60px rgba(127, 29, 29, 0.4)'
+    },
+    '👤': { // Silhouette - Silent Assassin
+      glow: 'rgba(55, 65, 81, 0.8)',
+      border: 'rgba(55, 65, 81, 1)',
+      shadow: '0 0 30px rgba(55, 65, 81, 0.6), 0 0 60px rgba(55, 65, 81, 0.4)'
+    },
+    '🔥': { // Fire - Unstoppable
+      glow: 'rgba(239, 68, 68, 0.8)',
+      border: 'rgba(239, 68, 68, 1)',
+      shadow: '0 0 30px rgba(239, 68, 68, 0.6), 0 0 60px rgba(239, 68, 68, 0.4)'
+    },
+    '👻': { // Ghost - Phantom
+      glow: 'rgba(139, 92, 246, 0.8)',
+      border: 'rgba(139, 92, 246, 1)',
+      shadow: '0 0 30px rgba(139, 92, 246, 0.6), 0 0 60px rgba(139, 92, 246, 0.4)'
+    },
+    '🛡️': { // Shield - Survivor
+      glow: 'rgba(34, 197, 94, 0.8)',
+      border: 'rgba(34, 197, 94, 1)',
+      shadow: '0 0 30px rgba(34, 197, 94, 0.6), 0 0 60px rgba(34, 197, 94, 0.4)'
+    },
+    '💎': { // Diamond - Glass Cannon
+      glow: 'rgba(168, 85, 247, 0.8)',
+      border: 'rgba(168, 85, 247, 1)',
+      shadow: '0 0 30px rgba(168, 85, 247, 0.6), 0 0 60px rgba(168, 85, 247, 0.4)'
+    },
+    '🏆': { // Trophy - Default/Legendary
+      glow: 'rgba(255, 215, 0, 0.8)',
+      border: 'rgba(255, 215, 0, 1)',
+      shadow: '0 0 30px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 215, 0, 0.4)'
+    }
+  };
+
+  // Special cases based on badge ID
+  const idThemeMap = {
+    'erebus-rising': {
+      glow: 'rgba(88, 28, 135, 0.8)',
+      border: 'rgba(88, 28, 135, 1)',
+      shadow: '0 0 30px rgba(88, 28, 135, 0.6), 0 0 60px rgba(88, 28, 135, 0.4)'
+    }
+  };
+
+  // Check ID first, then icon, then default
+  return idThemeMap[badgeId] || themeMap[icon] || themeMap['🏆'];
+};

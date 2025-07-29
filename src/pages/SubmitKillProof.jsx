@@ -1,187 +1,427 @@
 import React, { useState } from 'react';
-import { firestore } from '../firebase/config';
-import { collection, addDoc, Timestamp, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { reassignTarget } from '../utils/reassignTargets';
+import { motion } from 'framer-motion';
+import { auth, firestore, storage } from '../firebase/config';
+import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useAuthState } from 'react-firebase-hooks/auth';
 
-function SubmitKillProof() {
-  const [otherPlayerName, setOtherPlayerName] = useState('');
-  const [confirmationType, setConfirmationType] = useState('elimination'); // 'elimination' or 'death'
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { currentUser } = useAuth();
+const SubmitKillProof = () => {
   const navigate = useNavigate();
+  const [user] = useAuthState(auth);
+  const [formData, setFormData] = useState({
+    targetName: '',
+    location: '',
+    description: ''
+  });
+  const [media, setMedia] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [mediaType, setMediaType] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  const getPlayerName = async (uid) => {
-    const playerRef = doc(firestore, 'players', uid);
-    const playerSnap = await getDoc(playerRef);
-    return playerSnap.exists() ? playerSnap.data().fullName : null;
+  const handleInputChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
-  const handleConfirmation = async () => {
-    if (!otherPlayerName) {
-      setError('Please enter the player\'s name.');
-      return;
-    }
-    setLoading(true);
-    setError('');
-
-    const currentUserFullName = await getPlayerName(currentUser.uid);
-    if (!currentUserFullName) {
-        setError('Could not find your player data.');
-        setLoading(false);
+  const handleMediaChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Check file size (max 50MB for videos, 10MB for images)
+      const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setError(`File too large. Max size: ${file.type.startsWith('video/') ? '50MB for videos' : '10MB for images'}`);
         return;
+      }
+
+      setMedia(file);
+      setMediaType(file.type.startsWith('video/') ? 'video' : 'image');
+      setError('');
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setMediaPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    setUploadProgress(0);
 
     try {
-        if (confirmationType === 'elimination') {
-            // User is the killer
-            const killerName = currentUserFullName;
-            const victimName = otherPlayerName;
+      // Check game state and purge mode
+      const gameRef = doc(firestore, 'game', 'state');
+      const gameSnap = await getDoc(gameRef);
+      const gameData = gameSnap.data();
+      const isPurgeMode = gameData?.purgeMode || false;
 
-            const q = query(collection(firestore, 'confirmations'),
-                where('victimName', '==', victimName),
-                where('killerName', '==', killerName),
-                where('status', '==', 'victim_confirmed')
-            );
-            const querySnapshot = await getDocs(q);
+      // Get submitter's data
+      const submitterRef = doc(firestore, 'players', user.uid);
+      const submitterSnap = await getDoc(submitterRef);
+      
+      if (!submitterSnap.exists()) {
+        setError('Player data not found. Please contact an admin.');
+        setIsLoading(false);
+        return;
+      }
+      
+      const submitterData = submitterSnap.data();
 
-            if (!querySnapshot.empty) {
-                const confirmationDoc = querySnapshot.docs[0];
-                await updateDoc(confirmationDoc.ref, { status: 'confirmed', killerId: currentUser.uid });
-
-                await reassignTarget(currentUser.uid, victimName);
-
-                const announcementMessage = `${victimName} was eliminated by ${killerName}.`;
-                await addDoc(collection(firestore, 'announcements'), {
-                    message: announcementMessage,
-                    type: 'kill',
-                    timestamp: Timestamp.now(),
-                });
-
-                alert('Elimination confirmed!');
-                navigate('/dashboard');
-            } else {
-                await addDoc(collection(firestore, 'confirmations'), {
-                    killerId: currentUser.uid,
-                    killerName: killerName,
-                    victimName: victimName,
-                    status: 'killer_confirmed',
-                    timestamp: Timestamp.now(),
-                });
-                alert('Confirmation submitted. Waiting for the other player to confirm.');
-                navigate('/dashboard');
-            }
-        } else { // confirmationType === 'death'
-            // User is the victim
-            const victimName = currentUserFullName;
-            const killerName = otherPlayerName;
-
-            const q = query(collection(firestore, 'confirmations'),
-                where('killerName', '==', killerName),
-                where('victimName', '==', victimName),
-                where('status', '==', 'killer_confirmed')
-            );
-            const querySnapshot = await getDocs(q);
-
-            if (!querySnapshot.empty) {
-                const confirmationDoc = querySnapshot.docs[0];
-                await updateDoc(confirmationDoc.ref, { status: 'confirmed', victimId: currentUser.uid });
-
-                const killerId = confirmationDoc.data().killerId;
-                await reassignTarget(killerId, victimName);
-
-                const announcementMessage = `${victimName} was eliminated by ${killerName}.`;
-                await addDoc(collection(firestore, 'announcements'), {
-                    message: announcementMessage,
-                    type: 'kill',
-                    timestamp: Timestamp.now(),
-                });
-
-                alert('Your elimination has been confirmed.');
-                navigate('/dashboard');
-            } else {
-                await addDoc(collection(firestore, 'confirmations'), {
-                    victimId: currentUser.uid,
-                    victimName: victimName,
-                    killerName: killerName,
-                    status: 'victim_confirmed',
-                    timestamp: Timestamp.now(),
-                });
-                alert('Confirmation of death submitted. Waiting for the other player to confirm.');
-                navigate('/dashboard');
-            }
+      // Validate target if not in purge mode
+      if (!isPurgeMode) {
+        if (!submitterData.targetId) {
+          setError('You do not have an assigned target. Please contact an admin.');
+          setIsLoading(false);
+          return;
         }
+
+        // Get the target's data to compare names
+        const targetRef = doc(firestore, 'players', submitterData.targetId);
+        const targetSnap = await getDoc(targetRef);
+        
+        if (!targetSnap.exists()) {
+          setError('Your assigned target was not found. Please contact an admin.');
+          setIsLoading(false);
+          return;
+        }
+        
+        const targetData = targetSnap.data();
+        const assignedTargetName = targetData.fullName;
+        const submittedTargetName = formData.targetName.trim();
+        
+        // Compare target names (case-insensitive)
+        if (assignedTargetName.toLowerCase() !== submittedTargetName.toLowerCase()) {
+          setError(`It is not Purge Mode. You may only assassinate your target.`);
+          setIsLoading(false);
+          return;
+        }
+
+        // Check if target is still alive
+        if (!targetData.isAlive) {
+          setError(`${assignedTargetName} has already been eliminated. Please refresh your dashboard for a new target.`);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Upload media with progress
+      const timestamp = Date.now();
+      const fileExtension = media.name.split('.').pop();
+      const fileName = `${timestamp}_${user.uid}.${fileExtension}`;
+      const mediaRef = ref(storage, `kill-proofs/${fileName}`);
+      
+      // Simulate upload progress
+      const uploadTask = uploadBytes(mediaRef, media);
+      uploadTask.then(() => setUploadProgress(100));
+      
+      const uploadResult = await uploadTask;
+      const mediaUrl = await getDownloadURL(uploadResult.ref);
+
+      // Submit proof with additional metadata
+      const proofData = {
+        submittedBy: user.uid,
+        submitterName: submitterData?.fullName || 'Unknown',
+        submitterEmail: user.email,
+        targetName: formData.targetName.trim(),
+        location: formData.location.trim(),
+        description: formData.description.trim(),
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+        fileName: fileName,
+        timestamp: new Date(),
+        status: 'pending',
+        adminNotes: '',
+        reviewedBy: null,
+        reviewedAt: null,
+      };
+
+      await addDoc(collection(firestore, 'killProofs'), proofData);
+
+      // Success feedback
+      setUploadProgress(100);
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
+
     } catch (err) {
-        console.error("Confirmation failed:", err);
-        setError("Confirmation failed. Please try again.");
+      console.error('Submission error:', err);
+      setError('Failed to submit proof. Please try again.');
     } finally {
-        setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-gray-800 rounded-lg p-8 border border-gray-700 shadow-lg">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-red-400">💀 Confirm Elimination 💀</h1>
-          <p className="text-gray-400 mt-2">Confirm your action or your fate.</p>
-        </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+        
+        body {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+          background-attachment: fixed;
+          color: #E2E8F0;
+          font-family: 'Rajdhani', sans-serif;
+        }
 
-        <div className="flex justify-center mb-6">
-          <button
-            onClick={() => setConfirmationType('elimination')}
-            className={`px-4 py-2 rounded-l-lg font-semibold transition-colors ${
-              confirmationType === 'elimination' ? 'bg-red-600 text-white' : 'bg-gray-700 text-gray-300'
-            }`}
-          >
-            I Eliminated Someone
-          </button>
-          <button
-            onClick={() => setConfirmationType('death')}
-            className={`px-4 py-2 rounded-r-lg font-semibold transition-colors ${
-              confirmationType === 'death' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'
-            }`}
-          >
-            I Was Eliminated
-          </button>
-        </div>
+        .glass-card {
+          background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+        }
 
-        <div className="space-y-6">
-          <input
-            type="text"
-            placeholder={confirmationType === 'elimination' ? "Victim's Full Name" : "Killer's Full Name"}
-            className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-red-500 transition-colors"
-            value={otherPlayerName}
-            onChange={(e) => setOtherPlayerName(e.target.value)}
-          />
+        .glow-text {
+          text-shadow: 0 0 20px currentColor;
+        }
 
-          {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+        .upload-progress {
+          background: linear-gradient(90deg, #10b981 0%, #10b981 var(--progress), transparent var(--progress));
+        }
+      `}</style>
 
-          <button
-            onClick={handleConfirmation}
-            disabled={loading}
-            className={`w-full py-3 px-6 rounded-lg font-semibold transition-colors border ${
-              loading
-                ? 'bg-gray-600 cursor-not-allowed'
-                : confirmationType === 'elimination'
-                ? 'bg-red-600 hover:bg-red-700 border-red-500'
-                : 'bg-blue-600 hover:bg-blue-700 border-blue-500'
-            }`}
-          >
-            {loading ? 'Submitting...' : `Confirm ${confirmationType === 'elimination' ? 'Elimination' : 'Death'}`}
-          </button>
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-2xl"
+        >
+          <div className="glass-card rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            {/* Header */}
+            <motion.div 
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-center mb-8"
+            >
+              <h1 className="text-4xl font-bold font-heading glow-text mb-4">
+                <span className="text-red-400">💀 SUBMIT</span>{' '}
+                <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                  KILL PROOF
+                </span>
+              </h1>
+              <p className="text-gray-400 text-lg">Document your victory with photo/video evidence</p>
+            </motion.div>
 
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="w-full py-2 px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm transition-colors border border-gray-600"
-          >
-            Back to Dashboard
-          </button>
-        </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Target Name */}
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
+                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                  🎯 Target Name
+                </label>
+                <input
+                  type="text"
+                  name="targetName"
+                  value={formData.targetName}
+                  onChange={handleInputChange}
+                  placeholder="Full name of who you splashed"
+                  className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200"
+                  required
+                />
+              </motion.div>
+
+              {/* Location */}
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                  📍 Location
+                </label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  placeholder="Where did the elimination happen?"
+                  className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200"
+                  required
+                />
+              </motion.div>
+
+              {/* Description */}
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              >
+                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                  📝 Description
+                </label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Describe how the elimination happened..."
+                  rows={4}
+                  className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200 resize-none"
+                  required
+                />
+              </motion.div>
+
+              {/* Media Upload */}
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.6 }}
+              >
+                <label className="block text-sm font-semibold text-gray-300 mb-2">
+                  📸 Proof Media (Photo or Video)
+                </label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={handleMediaChange}
+                    className="hidden"
+                    id="media-upload"
+                    required
+                  />
+                  <label
+                    htmlFor="media-upload"
+                    className={`w-full px-4 py-8 bg-white/10 border-2 border-dashed border-white/20 rounded-2xl text-white hover:bg-white/20 transition-all duration-200 cursor-pointer flex flex-col items-center justify-center ${
+                      mediaPreview ? 'border-green-500/50' : ''
+                    }`}
+                  >
+                    {mediaPreview ? (
+                      <div className="w-full">
+                        {mediaType === 'video' ? (
+                          <video 
+                            src={mediaPreview} 
+                            controls 
+                            className="w-full h-48 object-cover rounded-xl mb-4"
+                          />
+                        ) : (
+                          <img 
+                            src={mediaPreview} 
+                            alt="Preview" 
+                            className="w-full h-48 object-cover rounded-xl mb-4"
+                          />
+                        )}
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="text-green-400">✓</span>
+                          <p className="text-green-400 text-center">
+                            {mediaType === 'video' ? 'Video' : 'Image'} selected
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-4xl mb-4">📷🎥</div>
+                        <p className="text-center text-gray-400 mb-2">
+                          Click to upload photo or video proof
+                        </p>
+                        <p className="text-center text-gray-500 text-sm">
+                          Max: 10MB for images, 50MB for videos
+                        </p>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </motion.div>
+
+              {/* Upload Progress */}
+              {isLoading && uploadProgress > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="space-y-2"
+                >
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Uploading...</span>
+                    <span className="text-blue-400">{uploadProgress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <motion.div 
+                      className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${uploadProgress}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                </motion.div>
+              )}
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4"
+                >
+                  <p className="text-red-300 text-sm text-center">{error}</p>
+                </motion.div>
+              )}
+
+              {/* Success Message */}
+              {uploadProgress === 100 && !error && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="bg-green-500/20 border border-green-500/50 rounded-2xl p-4"
+                >
+                  <p className="text-green-300 text-sm text-center flex items-center justify-center gap-2">
+                    <span className="text-lg">✅</span>
+                    Proof submitted successfully! Awaiting admin verification...
+                  </p>
+                </motion.div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-4">
+                <motion.button
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.7 }}
+                  type="button"
+                  onClick={() => navigate('/dashboard')}
+                  className="flex-1 py-4 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-2xl transition-all duration-300 font-heading text-lg"
+                  disabled={isLoading}
+                >
+                  ← Back
+                </motion.button>
+                
+                <motion.button
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.8 }}
+                  whileHover={{ scale: isLoading ? 1 : 1.02 }}
+                  whileTap={{ scale: isLoading ? 1 : 0.98 }}
+                  type="submit"
+                  disabled={isLoading || uploadProgress === 100}
+                  className="flex-1 py-4 bg-gradient-to-r from-red-600 via-orange-600 to-yellow-600 hover:from-red-500 hover:via-orange-500 hover:to-yellow-500 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl font-heading text-lg"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      SUBMITTING...
+                    </span>
+                  ) : uploadProgress === 100 ? (
+                    '✅ SUBMITTED'
+                  ) : (
+                    '💥 SUBMIT PROOF'
+                  )}
+                </motion.button>
+              </div>
+            </form>
+          </div>
+        </motion.div>
       </div>
-    </div>
+    </>
   );
 }
 

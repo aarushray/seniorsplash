@@ -1,28 +1,105 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, addDoc, Timestamp, setDoc, where } from 'firebase/firestore';
+import { firestore } from '../firebase/config';
 import { endGame } from '../utils/EndGame';
 import { startGame } from '../utils/StartGame';
 import { togglePurgeMode, getPurgeModeStatus } from '../utils/PurgeMode';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { firestore } from '../firebase/config';
-
-import ProofGallery from './ProofGallery';
+import { motion, AnimatePresence } from 'framer-motion';
+import { query, orderBy, onSnapshot, doc } from 'firebase/firestore';
+import { getAssassinsForPlayer } from '../utils/assassinIdentity';
+import { reassignTargetsAfterPurge } from '../utils/reassignTargetsAfterPurge';
+import { handleVerify, handleReject } from '../utils/killProofActions';
 
 const AdminDashboard = () => {
+  const [killProofs, setKillProofs] = useState([]);
+  const [selectedProof, setSelectedProof] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [processingIds, setProcessingIds] = useState(new Set());
+  const [adminNotes, setAdminNotes] = useState('');
   const [status, setStatus] = useState('');
   const [announcement, setAnnouncement] = useState('');
   const [announcementType, setAnnouncementType] = useState('admin');
   const [isPurgeMode, setIsPurgeMode] = useState(false);
   const [purgeStatus, setPurgeStatus] = useState('');
+  const [searchPlayerName, setSearchPlayerName] = useState('');
+  const [assassinResults, setAssassinResults] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [bountyTargetName, setBountyTargetName] = useState('');
+  const [bountyPrize, setBountyPrize] = useState('');
+  const [bountyDescription, setBountyDescription] = useState('');
+  const [bountyStatus, setBountyStatus] = useState('');
+
+
+  const handleSetBounty = async () => {
+    if (!bountyTargetName.trim() || !bountyPrize.trim()) {
+      alert('Please enter both target name and prize.');
+      return;
+    }
+      setBountyStatus('Setting bounty...');
+      try {
+        await setBounty(bountyTargetName.trim(), bountyPrize.trim(), bountyDescription.trim());
+        setBountyTargetName('');
+        setBountyPrize('');
+        setBountyDescription('');
+        setBountyStatus('Bounty set successfully!');
+        alert('🎯 Bounty has been set!');
+        
+        // Clear status after 3 seconds
+        setTimeout(() => setBountyStatus(''), 3000);
+      } catch (error) {
+        console.error('Error setting bounty:', error);
+        setBountyStatus('Failed to set bounty.');
+        alert('Failed to set bounty. Please try again.');
+      }
+  };
+
+const handleRemoveBounty = async () => {
+  setBountyStatus('Removing bounty...');
+  try {
+    const bountyRef = doc(firestore, 'game', 'bounty');
+    await setDoc(bountyRef, {
+      isActive: false,
+      removedAt: new Date()
+    });
+    setBountyStatus('Bounty removed successfully!');
+    alert('🚫 Bounty has been removed!');
+    
+    // Clear status after 3 seconds
+    setTimeout(() => setBountyStatus(''), 3000);
+  } catch (error) {
+    console.error('Error removing bounty:', error);
+    setBountyStatus('Failed to remove bounty.');
+    alert('Failed to remove bounty. Please try again.');
+  }
+};
+
 
   useEffect(() => {
+
     const fetchPurgeStatus = async () => {
       const status = await getPurgeModeStatus();
       setIsPurgeMode(status);
     };
     fetchPurgeStatus();
+
+    const q = query(
+      collection(firestore, 'killProofs'), 
+      orderBy('timestamp', 'desc')
+    );
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const proofsData = [];
+      querySnapshot.forEach((doc) => {
+        proofsData.push({ id: doc.id, ...doc.data() });
+      });
+      setKillProofs(proofsData);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const handleStartGame = async () => {
+    const handleStartGame = async () => {
     setStatus('Starting game...');
     try {
       await startGame();
@@ -55,6 +132,10 @@ const AdminDashboard = () => {
       setIsPurgeMode(newStatus);
       setPurgeStatus(`Purge Mode is now ${newStatus ? 'ON' : 'OFF'}.`);
       alert(`Purge Mode has been turned ${newStatus ? 'ON' : 'OFF'}.`);
+      if (!newStatus) {
+        console.log('Reassigning TARGETS NOWWW...');
+        await reassignTargetsAfterPurge();
+      }
     } catch (err) {
       setPurgeStatus('Failed to update Purge Mode.');
       console.error('Purge mode error:', err);
@@ -81,69 +162,530 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleFindAssassins = async () => {
+    if (!searchPlayerName.trim()) {
+      alert('Please enter a player name');
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const results = await getAssassinsForPlayer(searchPlayerName.trim());
+      setAssassinResults(results);
+      
+      if (results.success) {
+        console.log(`Found assassins for ${searchPlayerName}:`, results);
+      } else {
+        alert(results.message);
+      }
+    } catch (error) {
+      console.error('Error finding assassins:', error);
+      alert('Error finding assassins. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const clearAssassinSearch = () => {
+    setSearchPlayerName('');
+    setAssassinResults(null);
+  };
+
+  const setBounty = async (targetName, prize, description) => {
+  const bountyRef = doc(firestore, 'game', 'bounty');
+  await setDoc(bountyRef, {
+    isActive: true,
+    targetName,
+    prize,
+    description,
+    createdAt: new Date(),
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
+  });
+};
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'pending': return 'border-yellow-500/50 bg-yellow-500/10';
+      case 'verified': return 'border-green-500/50 bg-green-500/10';
+      case 'rejected': return 'border-red-500/50 bg-red-500/10';
+      default: return 'border-gray-500/50 bg-gray-500/10';
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'pending': return '⏳';
+      case 'verified': return '✅';
+      case 'rejected': return '❌';
+      default: return '❓';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <motion.div 
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="text-center"
+        >
+          <div className="text-6xl mb-4">⚙️</div>
+          <p className="text-xl text-gray-400">Loading admin dashboard...</p>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 shadow-lg mt-6">
-        <h2 className="text-xl font-bold mb-4 text-center text-blue-400">📢 Admin Controls 📢</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-gray-700 rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-2 text-center text-white">Game Management</h3>
-            <div className="flex flex-col space-y-4">
-              <button
-                onClick={handleStartGame}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Start Game
-              </button>
-              <button
-                onClick={handleEndGame}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-              >
-                End Game
-              </button>
-              <button
-                onClick={handleTogglePurgeMode}
-                className={`px-4 py-2 text-white rounded ${
-                  isPurgeMode ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-purple-600 hover:bg-purple-700'
-                }`}
-              >
-                {isPurgeMode ? 'Deactivate Purge Mode' : 'Activate Purge Mode'}
-              </button>
-            </div>
-            {status && <p className="mt-4 text-center text-sm text-gray-400">{status}</p>}
-            {purgeStatus && <p className="mt-2 text-center text-sm text-yellow-400">{purgeStatus}</p>}
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
+        
+        body {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+          background-attachment: fixed;
+          color: #E2E8F0;
+          font-family: 'Rajdhani', sans-serif;
+        }
+
+        .glass-card {
+          background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .glow-text {
+          text-shadow: 0 0 20px currentColor;
+        }
+      `}</style>
+
+      <div className="min-h-screen p-8">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center mb-8"
+          >
+            <h1 className="text-5xl font-bold font-heading glow-text mb-4">
+              <span className="text-red-400">⚔️ ADMIN</span>{' '}
+              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                DASHBOARD
+              </span>
+            </h1>
+            <p className="text-gray-400 text-xl">
+              Review and verify kill proofs
+            </p>
+          </motion.div>
+
+          {/* Stats */}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Game Management</h2>
+          <div className="space-y-4">
+            <button onClick={handleStartGame} className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-semibold rounded-2xl">Start Game</button>
+            <button onClick={handleEndGame} className="w-full py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-2xl">End Game</button>
+            <button onClick={handleTogglePurgeMode} className={`w-full py-3 text-white font-semibold rounded-2xl ${isPurgeMode ? 'bg-yellow-500' : 'bg-purple-600'}`}>
+              {isPurgeMode ? 'Deactivate Purge Mode' : 'Activate Purge Mode'}
+            </button>
           </div>
-          <div className="bg-gray-700 rounded-lg p-4">
-            <h3 className="text-lg font-semibold mb-2 text-center text-white">Send Announcement</h3>
-            <div className="flex flex-col space-y-4">
-              <textarea
-                value={announcement}
-                onChange={(e) => setAnnouncement(e.target.value)}
-                placeholder="Enter announcement message..."
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
-                rows="3"
-              />
-              <select
-                value={announcementType}
-                onChange={(e) => setAnnouncementType(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500"
+          {status && <p className="mt-4 text-center text-sm text-gray-600">{status}</p>}
+          {purgeStatus && <p className="mt-2 text-center text-sm text-yellow-600">{purgeStatus}</p>}
+        </div>
+        
+        <div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Send Announcement</h2>
+          <div className="space-y-4">
+            <textarea
+              value={announcement}
+              onChange={(e) => setAnnouncement(e.target.value)}
+              placeholder="Enter announcement message..."
+              className="w-full px-4 py-3 bg-white/50 border-0 rounded-2xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white/70 transition-all duration-200"
+              rows="3"
+            />
+            <select
+              value={announcementType}
+              onChange={(e) => setAnnouncementType(e.target.value)}
+              className="w-full px-4 py-3 bg-white/50 border-0 rounded-2xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white/70 transition-all duration-200"
+            >
+              <option value="admin">Admin Update</option>
+              <option value="event">Major Event</option>
+            </select>
+            <button onClick={handleSendAnnouncement} className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-2xl">Send Announcement</button>
+          </div>
+        </div>
+      </div>
+
+
+  <div>
+    <h2 className="text-xl font-bold text-gray-300 mb-4">🎯 Bounty Management</h2>
+    <div className="space-y-4">
+      <input
+        type="text"
+        value={bountyTargetName}
+        onChange={(e) => setBountyTargetName(e.target.value)}
+        placeholder="Target name..."
+        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:bg-white/20 transition-all duration-200"
+      />
+      <input
+        type="text"
+        value={bountyPrize}
+        onChange={(e) => setBountyPrize(e.target.value)}
+        placeholder="Prize (e.g., $50 Gift Card)..."
+        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:bg-white/20 transition-all duration-200"
+      />
+      <textarea
+        value={bountyDescription}
+        onChange={(e) => setBountyDescription(e.target.value)}
+        placeholder="Description (optional)..."
+        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:bg-white/20 transition-all duration-200"
+        rows="2"
+      />
+      <div className="flex space-x-2">
+        <button 
+          onClick={handleSetBounty}
+          className="flex-1 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white font-semibold rounded-2xl hover:from-yellow-600 hover:to-orange-600 transition-all"
+        >
+          💰 Set Bounty
+        </button>
+        <button 
+          onClick={handleRemoveBounty}
+          className="px-4 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white font-semibold rounded-2xl hover:from-gray-700 hover:to-gray-800 transition-all"
+        >
+          🚫 Remove
+        </button>
+      </div>
+    </div>
+    {bountyStatus && <p className="mt-4 text-center text-sm text-yellow-400">{bountyStatus}</p>}
+  </div>
+
+
+      {/* Add this section after the existing Game Management and Announcements */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Game Management</h2>
+          {/* ...existing game management buttons... */}
+        </div>
+
+        <div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Send Announcement</h2>
+          {/* ...existing announcement form... */}
+        </div>
+
+        {/* NEW: Assassin Finder Section */}
+        <div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Find Assassins</h2>
+          <div className="space-y-4">
+            <input
+              type="text"
+              value={searchPlayerName}
+              onChange={(e) => setSearchPlayerName(e.target.value)}
+              placeholder="Enter player name..."
+              className="w-full px-4 py-3 bg-white/50 border-0 rounded-2xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white/70 transition-all duration-200"
+              onKeyPress={(e) => e.key === 'Enter' && handleFindAssassins()}
+            />
+            <div className="flex space-x-2">
+              <button 
+                onClick={handleFindAssassins} 
+                disabled={isSearching}
+                className="flex-1 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold rounded-2xl disabled:opacity-50"
               >
-                <option value="admin">Admin Update (Blue)</option>
-                <option value="event">Major Event (Gold)</option>
-              </select>
-              <button
-                onClick={handleSendAnnouncement}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Send Announcement
+                {isSearching ? 'Searching...' : 'Find Assassins'}
               </button>
+              {assassinResults && (
+                <button 
+                  onClick={clearAssassinSearch}
+                  className="px-4 py-3 bg-gray-500 text-white font-semibold rounded-2xl"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
-      <ProofGallery />
-    </div>
+
+      {/* Assassin Search Results */}
+      {assassinResults && assassinResults.success && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass-card rounded-2xl p-6 mb-6"
+        >
+          <h3 className="text-2xl font-bold mb-4 text-center">
+            🎯 Assassins Targeting: <span className="text-red-400">{assassinResults.target.name}</span>
+          </h3>
+          
+          {/* Target Info */}
+          <div className="bg-white/10 rounded-xl p-4 mb-4">
+            <h4 className="text-lg font-semibold mb-2">Target Information:</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-gray-400">Class:</span>
+                <p className="font-semibold">{assassinResults.target.class}</p>
+              </div>
+              <div>
+                <span className="text-gray-400">Status:</span>
+                <p className={`font-semibold ${assassinResults.target.isAlive ? 'text-green-400' : 'text-red-400'}`}>
+                  {assassinResults.target.isAlive ? 'Alive' : 'Eliminated'}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-400">Total Kills:</span>
+                <p className="font-semibold text-orange-400">{assassinResults.target.kills}</p>
+              </div>
+              <div>
+                <span className="text-gray-400">Current Streak:</span>
+                <p className="font-semibold text-purple-400">{assassinResults.target.splashes}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Assassins List */}
+          {assassinResults.assassins.length > 0 ? (
+            <div>
+              <h4 className="text-lg font-semibold mb-3">
+                Assassins ({assassinResults.assassins.length}):
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {assassinResults.assassins.map((assassin, index) => (
+                  <motion.div
+                    key={assassin.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="bg-white/10 rounded-xl p-4 border border-red-500/30"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h5 className="font-bold text-red-400">{assassin.name}</h5>
+                      <span className="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded-full">
+                        {assassin.class}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-gray-400">Kills:</span>
+                        <span className="ml-1 font-semibold text-orange-400">{assassin.kills}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400">Streak:</span>
+                        <span className="ml-1 font-semibold text-purple-400">{assassin.splashes}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-gray-400">Target Assigned:</span>
+                        <p className="text-xs text-gray-300">
+                          {assassin.targetAssignedAt ? 
+                            new Date(assassin.targetAssignedAt.seconds * 1000).toLocaleString() : 
+                            'Unknown'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-xl text-gray-400">🛡️ No assassins targeting this player</p>
+              <p className="text-sm text-gray-500 mt-2">This player is currently safe!</p>
+            </div>
+          )}
+        </motion.div>
+      )}
+
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {[
+              { label: 'Total Proofs', value: killProofs.length, color: 'blue' },
+              { label: 'Pending', value: killProofs.filter(p => p.status === 'pending').length, color: 'yellow' },
+              { label: 'Verified', value: killProofs.filter(p => p.status === 'verified').length, color: 'green' },
+              { label: 'Rejected', value: killProofs.filter(p => p.status === 'rejected').length, color: 'red' }
+            ].map((stat, index) => (
+              <motion.div 
+                key={stat.label}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className="glass-card rounded-2xl p-6 text-center"
+              >
+                <p className={`text-3xl font-bold text-${stat.color}-400 mb-2`}>
+                  {stat.value}
+                </p>
+                <p className="text-gray-400">{stat.label}</p>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Kill Proofs Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            <AnimatePresence>
+              {killProofs.map((proof, index) => (
+                <motion.div
+                  key={proof.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={`glass-card rounded-2xl p-6 cursor-pointer hover:bg-white/15 transition-all duration-200 ${getStatusColor(proof.status)}`}
+                  onClick={() => setSelectedProof(proof)}
+                >
+                  {/* Proof Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold font-heading">
+                      {proof.submitterName} → {proof.targetName}
+                    </h3>
+                    <span className="text-2xl">
+                      {getStatusIcon(proof.status)}
+                    </span>
+                  </div>
+
+                  {/* Media Preview */}
+                  <div className="mb-4">
+                    {proof.mediaType === 'video' ? (
+                      <video 
+                        src={proof.mediaUrl}
+                        className="w-full h-32 object-cover rounded-xl"
+                        muted
+                      />
+                    ) : (
+                      <img 
+                        src={proof.mediaUrl}
+                        alt="Kill proof"
+                        className="w-full h-32 object-cover rounded-xl"
+                      />
+                    )}
+                  </div>
+
+                  {/* Proof Details */}
+                  <div className="space-y-2 text-sm">
+                    <p><span className="text-gray-400">Location:</span> {proof.location}</p>
+                    <p><span className="text-gray-400">Time:</span> {proof.timestamp.toDate().toLocaleString()}</p>
+                    <p className="text-gray-300 line-clamp-2">{proof.description}</p>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="mt-4">
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      proof.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                      proof.status === 'verified' ? 'bg-green-500/20 text-green-300' :
+                      'bg-red-500/20 text-red-300'
+                    }`}>
+                      {proof.status.toUpperCase()}
+                    </span>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+          {/* Detailed Proof Modal */}
+          <AnimatePresence>
+            {selectedProof && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                onClick={() => setSelectedProof(null)}
+              >
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.9, opacity: 0 }}
+                  className="glass-card rounded-3xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Modal Header */}
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-3xl font-bold font-heading">
+                      Kill Proof Details
+                    </h2>
+```
+                    <button
+                      onClick={() => setSelectedProof(null)}
+                      className="w-10 h-10 rounded-full bg-red-500/20 hover:bg-red-500/30 flex items-center justify-center transition-colors"
+                      aria-label="Close"
+                    >
+                      <span className="text-2xl">✖</span>
+                    </button>
+                  </div>
+
+                  {/* Modal Body */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Media */}
+                    <div>
+                      {selectedProof.mediaType === 'video' ? (
+                        <video
+                          src={selectedProof.mediaUrl}
+                          className="w-full h-64 object-cover rounded-xl mb-4"
+                          controls
+                        />
+                      ) : (
+                        <img
+                          src={selectedProof.mediaUrl}
+                          alt="Kill proof"
+                          className="w-full h-64 object-cover rounded-xl mb-4"
+                        />
+                      )}
+                      <div className="text-sm text-gray-400">
+                        <p><span className="font-semibold text-gray-300">Location:</span> {selectedProof.location}</p>
+                        <p><span className="font-semibold text-gray-300">Time:</span> {selectedProof.timestamp.toDate().toLocaleString()}</p>
+                      </div>
+                    </div>
+                    {/* Details and Actions */}
+                    <div>
+                      <div className="mb-4">
+                        <h3 className="text-xl font-bold mb-2">Description</h3>
+                        <p className="text-gray-200">{selectedProof.description}</p>
+                      </div>
+                      <div className="mb-4">
+                        <h3 className="text-xl font-bold mb-2">Status</h3>
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          selectedProof.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                          selectedProof.status === 'verified' ? 'bg-green-500/20 text-green-300' :
+                          'bg-red-500/20 text-red-300'
+                        }`}>
+                          {selectedProof.status.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="mb-4">
+                        <h3 className="text-xl font-bold mb-2">Admin Notes</h3>
+                        <textarea
+                          className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-gray-200"
+                          rows={3}
+                          value={adminNotes}
+                          onChange={e => setAdminNotes(e.target.value)}
+                          placeholder="Add notes for this proof (optional)..."
+                        />
+                      </div>
+                      {selectedProof.status === 'pending' && (
+                        <div className="flex gap-4">
+                          <button
+                            className="flex-1 py-2 rounded-xl bg-green-500/80 hover:bg-green-600 text-white font-bold transition"
+                            disabled={processingIds.has(selectedProof.id)}
+                            onClick={() => handleVerify(selectedProof, adminNotes, setProcessingIds, setAdminNotes)}
+                          >
+                            {processingIds.has(selectedProof.id) ? 'Verifying...' : 'Verify'}
+                          </button>
+                          <button
+                            className="flex-1 py-2 rounded-xl bg-red-500/80 hover:bg-red-600 text-white font-bold transition"
+                            disabled={processingIds.has(selectedProof.id)}
+                            onClick={() => handleReject(selectedProof, adminNotes, setProcessingIds, setAdminNotes)}
+                          >
+                            {processingIds.has(selectedProof.id) ? 'Rejecting...' : 'Reject'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        </div>
+    </>
   );
 };
-
 export default AdminDashboard;

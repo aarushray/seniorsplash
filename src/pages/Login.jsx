@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { auth } from '../firebase/config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { firestore } from '../firebase/config';
@@ -18,141 +19,227 @@ const Login = () => {
     setError('');
     
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      if (!user) { 
+        setError('Invalid email or password. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+      
       const gameRef = doc(firestore, 'game', 'state');
       const gameSnap = await getDoc(gameRef);
-      if (!gameSnap.exists() || !gameSnap.data().gameStarted) {
+      const playerRef = doc(firestore, 'players', user.uid);
+      const playerSnap = await getDoc(playerRef);
+      
+      const gameStarted = gameSnap.exists() && gameSnap.data().gameStarted;
+      const playerData = playerSnap.exists() ? playerSnap.data() : null;
+      const isInGame = playerData && playerData.isInGame;
+
+      if (gameStarted && isInGame) {
         navigate("/dashboard");
       } else {
         navigate("/joingame");
       }
     } catch (err) {
-      setError('💀 Invalid credentials - you cannot enter the arena');
+      setError('Invalid email or password. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-gray-900 to-blue-900 flex items-center justify-center px-4">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-2 h-2 bg-blue-400 rounded-full opacity-30 animate-pulse"></div>
-        <div className="absolute top-3/4 right-1/3 w-1 h-1 bg-blue-300 rounded-full opacity-40 animate-ping"></div>
-        <div className="absolute bottom-1/4 left-1/3 w-1.5 h-1.5 bg-cyan-400 rounded-full opacity-25 animate-pulse"></div>
-      </div>
-
-      <div className="max-w-md w-full relative z-10">
-        {/* Header Section */}
-        <div className="text-center mb-8">
-          <div className="mb-4">
-            <h1 className="text-5xl font-bold mb-2">
-              🌊 <span className="text-blue-400">SENIOR</span> <br /> <span className="text-red-400">SPLASH</span> 🌊
-            </h1>
-            <div className="text-sm text-gray-400 tracking-widest">
-              ═══ SENIOR ELIMINATION GAME ═══
-            </div>
-          </div>
-          
-          <div className="bg-gray-800 bg-opacity-50 backdrop-blur-sm rounded-lg p-6 border border-gray-700 shadow-2xl">
-            <h2 className="text-3xl font-bold text-white mb-2">Enter the Arena</h2>
-            <p className="text-gray-300">
-              💀 <em>Only the worthy may enter the dark waters...</em> 💀
-            </p>
-          </div>
-        </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
         
-        {/* Login Form */}
-        <div className="bg-gray-800 bg-opacity-70 backdrop-blur-sm rounded-lg p-8 border border-gray-600 shadow-2xl">
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                🔱 Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="Enter your email..."
-                className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition-all duration-300"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
+        body {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+          background-attachment: fixed;
+          color: #E2E8F0;
+          font-family: 'Rajdhani', sans-serif;
+          position: relative;
+          overflow-x: hidden;
+        }
+
+        body::before {
+          content: '';
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23075985' fill-opacity='0.1' d='M0,96L48,112C96,128,192,160,288,186.7C384,213,480,235,576,213.3C672,192,768,128,864,128C960,128,1056,192,1152,208C1248,224,1344,192,1392,176L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+          background-size: cover;
+          animation: waveFloat 20s ease-in-out infinite;
+          z-index: -1;
+        }
+
+        @keyframes waveFloat {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-20px) scale(1.02); }
+        }
+
+        .glass-card {
+          background: rgba(255, 255, 255, 0.08);
+          backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .glow-text {
+          text-shadow: 0 0 20px currentColor;
+        }
+      `}</style>
+
+      <div className="min-h-screen flex items-center justify-center px-4 py-8">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md"
+        >
+          {/* Login Card */}
+          <div className="glass-card rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+            {/* Decorative glow */}
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-3xl"></div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                🗝️ Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Enter your password..."
-                className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50 transition-all duration-300"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-
-            {error && (
-              <div className="bg-red-900 bg-opacity-50 border border-red-500 rounded-lg p-3">
-                <p className="text-red-300 text-sm text-center">{error}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white font-bold rounded-lg transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg border border-blue-500"
+            {/* Header */}
+            <motion.div 
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="text-center mb-8 relative z-10"
             >
-              {isLoading ? (
-                <span className="flex items-center justify-center">
-                  <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full mr-2"></div>
-                  Entering Arena...
-                </span>
-              ) : (
-                '⚔️ Login ⚔️'
-              )}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="mt-8">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-600"></div>
+              <div className="flex items-center justify-center mb-6">
+                <motion.div 
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.5 }}
+                  className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mr-4 shadow-2xl"
+                >
+                  <span className="text-white text-2xl">🌊</span>
+                </motion.div>
+                <h1 className="text-4xl font-bold font-heading glow-text">
+                  <span className="text-blue-400">SENIOR</span>{' '}
+                  <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    SPLASH
+                  </span>
+                </h1>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-3 bg-gray-800 text-gray-400 font-medium">
-                  ～ OR  ～
-                </span>
-              </div>
-            </div>
-          </div>
+              <p className="text-gray-400 text-lg">Welcome back, Agent</p>
+            </motion.div>
 
-
-          {/* Navigation Links */}
-          <div className="mt-8 text-center space-y-3">
-            <p className="text-gray-400">
-              🆕 New to the arena?{' '}
-              <button
-                onClick={() => navigate('/register')}
-                className="text-cyan-400 hover:text-cyan-300 font-semibold hover:underline transition-colors"
+            <form onSubmit={handleLogin} className="space-y-6 relative z-10">
+              {/* Email Input */}
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="relative"
               >
-                Sign Up
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="Email or username"
+                  className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white/20 transition-all duration-200 backdrop-blur-sm"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </motion.div>
+              
+              {/* Password Input */}
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+                className="relative"
+              >
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  placeholder="Password"
+                  className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white/20 transition-all duration-200 backdrop-blur-sm"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </motion.div>
+
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4 backdrop-blur-sm"
+                >
+                  <p className="text-red-300 text-sm text-center">{error}</p>
+                </motion.div>
+              )}
+
+              {/* Login Button */}
+              <motion.button
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-500 hover:via-purple-500 hover:to-pink-500 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl font-heading text-lg relative overflow-hidden"
+              >
+                <span className="relative z-10">
+                  {isLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      ACCESSING SYSTEM...
+                    </span>
+                  ) : (
+                    '🚀 ENTER BATTLE'
+                  )}
+                </span>
+              </motion.button>
+            </form>
+
+            {/* Footer Links */}
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+              className="mt-8 text-center space-y-4 relative z-10"
+            >
+              <p className="text-gray-400 text-sm">
+                Don't have an account?{' '}
+                <button
+                  onClick={() => navigate('/register')}
+                  className="text-pink-400 hover:text-pink-300 font-medium transition-colors duration-200 glow-text"
+                >
+                  Join the Game
+                </button>
+              </p>
+              
+              <button className="text-gray-500 hover:text-gray-400 text-sm transition-colors duration-200">
+                Forgot password?
               </button>
-            </p>
-            
-            <div className="text-xs text-gray-500 border-t border-gray-700 pt-4">
-              <p>🌊 <em>May the waters guide your aim...</em> 🌊</p>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </div>
-    </div>
+    </>
   );
 };
 

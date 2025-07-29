@@ -10,6 +10,8 @@ import JoinGame from './pages/JoinGame';
 import AdminDashboard from './components/AdminDashboard';
 import './index.css';
 import AdminRoute from './components/AdminRoute';
+import Profile from './pages/Profile';
+import LeaderBoard from './pages/LeaderBoard';
 
 function App() {
   return (
@@ -41,6 +43,22 @@ function App() {
               <AdminDashboard />
             </AdminRoute>
           }
+      />
+      <Route
+        path="/profile"
+        element={
+          <PrivateRoute>
+            <Profile />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/leaderboard"
+        element={
+          <PrivateRoute>
+            <LeaderBoard />
+          </PrivateRoute>
+        }
       />
     </Routes>
   );
