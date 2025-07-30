@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { use, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { doc, onSnapshot, query, collection, where, updateDoc } from 'firebase/firestore';
@@ -177,7 +177,6 @@ useEffect(() => {
     unsubscribe();
   };
 }, []);
-
 
   useSurvivalTime(playerData, setSurvivalTime);
 

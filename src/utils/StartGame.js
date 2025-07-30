@@ -1,48 +1,73 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import assignTargets from './assignTargets';
 
-/**
- * Starts the game by assigning targets and updating game state
- */
-export async function startGame() {
+// Export this function for use in AdminDashboard
+export const startGame = async () => {
   try {
-    // Assign targets to all players
+    console.log('Preparing game...');
     
-    // Update game state to started
-    const gameStateRef = doc(firestore, 'game', 'state');
-    await updateDoc(gameStateRef, { 
-      gameStarted: true,
-      gameEnded: false 
+    // Get all players who are in the game
+    const playersQuery = query(
+      collection(firestore, 'players'),
+      where('isInGame', '==', true)
+    );
+    const playersSnapshot = await getDocs(playersQuery);
+    
+    // Create batch update
+    const batch = writeBatch(firestore);
+    const gameStartTime = new Date();
+    
+    console.log('Updating player join times...');
+    
+    // Update all players' gameJoinedAt to the current time
+    playersSnapshot.forEach((playerDoc) => {
+      console.log(`Updating player ${playerDoc.id} join time`);
+      batch.update(playerDoc.ref, {
+        gameJoinedAt: gameStartTime
+      });
     });
+    
+    // Update game state
+    const gameStateRef = doc(firestore, 'game', 'state');
+    batch.update(gameStateRef, { 
+      gameStarted: true,
+      gameEnded: false,
+      gameStartedAt: gameStartTime
+    });
+    
+    // Commit the batch
+    await batch.commit();
+    console.log('Game state updated to started');
+    
+    console.log('Assigning targets...');
     await assignTargets();
-    return { success: true };
+    
+    console.log('Game has started! Targets assigned.');
+    return { success: true, playerCount: playersSnapshot.size };
+    
   } catch (error) {
     console.error('Failed to start game:', error);
-    // alert('YASSIGNTARGETS IS ISSUE');
     throw error;
   }
-}
+};
 
+// Component version that uses the exported function
 const StartGame = () => {
   const { currentUser } = useAuth();
   const [status, setStatus] = useState('');
 
   const handleStartGame = async () => {
+    setStatus('Starting game...');
     try {
-      setStatus('Assigning targets...');
-      // await assignTargets();
-      console.log('assignTargets finished');
-      const gameStateRef = doc(firestore, 'game', 'state');
-      await updateDoc(gameStateRef, { gameStarted: true });
+      const result = await startGame();
       setStatus('Game has started! Targets assigned.');
-      alert('Game has started! Targets assigned.');
+      alert(`Game has started! ${result.playerCount} players updated with start time.`);
     } catch (error) {
-      console.error('Failed to start game:', error);
-      // alert('handlestartgame IS ISSUE');
-      alert(error?.message || JSON.stringify(error) || 'Failed to start game. Check console for details.');
+      setStatus('Failed to start game');
+      alert(error?.message || 'Failed to start game. Check console for details.');
     }
   };
 

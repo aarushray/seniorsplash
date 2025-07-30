@@ -134,7 +134,7 @@ const handleRemoveBounty = async () => {
     return () => unsubscribe();
   }, []);
 
-    const handleStartGame = async () => {
+  const handleStartGame = async () => {
     setStatus('Starting game...');
     try {
       await startGame();
