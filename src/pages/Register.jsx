@@ -13,74 +13,97 @@ const Register = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  setIsLoading(true);
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      setIsLoading(false);
-      return;
+  if (password !== confirmPassword) {
+    setError('Passwords do not match');
+    setIsLoading(false);
+    return;
+  }
+
+  try {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Add validation
+    if (!user || !user.uid) {
+      throw new Error('User creation failed - invalid user data');
     }
 
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+    console.log('Creating document for user:', user.uid); // Debug log
 
-      await setDoc(doc(firestore, 'players', user.uid), {
-        // Core identifiers
-        uid: user.uid,
-        email: user.email,
-        
-        // Profile information (filled later in particulars)
-        fullName: '',
-        studentClass: '',
-        profilePhotoURL: '',
-        avatarIndex: 0,
-        messageToKiller: '',
-        
-        // Game state
-        isInGame: false,
-        isAlive: true,
-        targetId: null,
-        
-        // Location tracking
-        lastKnownLocation: '',
-        locationUpdatedAt: null,
+    // Use a transaction or add retry logic for critical data
+    await setDoc(doc(firestore, 'players', user.uid), {
+      // Core identifiers
+      uid: user.uid,
+      email: user.email,
+      
+      // Profile information (filled later in particulars)
+      fullName: '',
+      studentClass: '',
+      studentId: '', // Add this if missing
+      profilePhotoURL: '',
+      avatarIndex: 0,
+      messageToKiller: '',
+      
+      // Game state
+      isInGame: false,
+      isAlive: true,
+      targetId: null,
+      
+      // Location tracking
+      lastKnownLocation: '',
+      locationUpdatedAt: null,
 
-        removedFromGame: false,
-        removedAt: null,
-        
-        // Statistics
-        kills: 0,
-        splashes: 0,
-        purgeKills: 0,
-        bountyKills: 0,
-        
-        // Game timing
-        gameJoinedAt: null,
-        createdAt: new Date(),
-        
-        // Achievements
-        badges: [],
-        recentKills: [],
-        lastBadgeEarned: null,
-        lastBadgeTimestamp: null,
-        earnedBadges: [],
-        
-        // Admin flags
-        isAdmin: false,
-      });
+      removedFromGame: false,
+      removedAt: null,
+      
+      // Statistics
+      kills: 0,
+      splashes: 0,
+      purgeKills: 0,
+      bountyKills: 0,
+      
+      // Game timing
+      gameJoinedAt: null,
+      createdAt: new Date(),
+      
+      // Achievements
+      badges: [],
+      recentKills: [],
+      lastBadgeEarned: null,
+      lastBadgeTimestamp: null,
+      earnedBadges: [],
+      
+      // Admin flags
+      isAdmin: false,
+    });
 
-      navigate('/particulars');
-    } catch (err) {
-      console.error(err.message);
-      setError(err.message);
-    } finally {
-      setIsLoading(false);
+    console.log('Document created successfully for:', user.uid); // Debug log
+    navigate('/particulars');
+    
+  } catch (err) {
+    console.error('Registration error:', err);
+    
+    // More specific error handling
+    if (err.code === 'auth/email-already-in-use') {
+      setError('This email is already registered. Please use a different email or try logging in.');
+    } else if (err.code === 'auth/weak-password') {
+      setError('Password is too weak. Please choose a stronger password.');
+    } else if (err.code === 'auth/invalid-email') {
+      setError('Please enter a valid email address.');
+    } else if (err.message?.includes('User creation failed')) {
+      setError('Failed to create account. Please try again.');
+    } else {
+      setError(err.message || 'Registration failed. Please try again.');
     }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <>
