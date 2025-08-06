@@ -4,6 +4,62 @@ import { badges } from './Badges';
 import { reassignTargets } from './reassignTargets';
 import { createKillAnnouncement } from '../components/Announcements';
 
+export const removePlayerFromGame = async (studentId) => {
+  try {
+    // Find player by studentId
+    const playersRef = collection(firestore, 'players');
+    const q = query(playersRef, where('studentId', '==', studentId));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      throw new Error(`No player found with student ID: ${studentId}`);
+    }
+    
+    if (querySnapshot.size > 1) {
+      throw new Error(`Multiple players found with student ID: ${studentId}`);
+    }
+    
+    const playerDoc = querySnapshot.docs[0];
+    const playerData = playerDoc.data();
+    
+    // Update player status
+    await updateDoc(playerDoc.ref, {
+      isInGame: false,
+      isAlive: false,
+      targetId: null,
+      removedFromGame: true,
+      removedAt: new Date(),
+      lastKnownLocation: 'Removed from game'
+    });
+    
+    // If player had a target, we need to reassign it
+    if (playerData.targetId) {
+      // Find who was targeting the removed player
+      const assassinQuery = query(playersRef, where('targetId', '==', playerDoc.id));
+      const assassinSnapshot = await getDocs(assassinQuery);
+      
+      // Reassign the removed player's target to their assassin(s)
+      for (const assassinDoc of assassinSnapshot.docs) {
+        await updateDoc(assassinDoc.ref, {
+          targetId: playerData.targetId,
+          targetAssignedAt: new Date()
+        });
+      }
+    }
+    
+    return {
+      success: true,
+      playerName: playerData.fullName,
+      playerClass: playerData.studentClass
+    };
+    
+  } catch (error) {
+    console.error('Error removing player:', error);
+    throw error;
+  }
+};
+
+
 export const sendAnnouncement = async (message, type = 'admin') => {
   if (!message.trim()) throw new Error('Announcement message is required');
   

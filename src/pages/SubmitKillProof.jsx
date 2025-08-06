@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { auth, firestore, storage } from '../firebase/config';
-import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useAuthState } from 'react-firebase-hooks/auth';
 
@@ -20,6 +20,22 @@ const SubmitKillProof = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [alivePlayers, setAlivePlayers] = useState([]);
+
+  useEffect(() => {
+    const fetchAlivePlayers = async () => {
+      if (!user) return;
+
+      const playersQuery = query(collection(firestore, 'players'), where('isAlive', '==', true));
+      const playersSnap = await getDocs(playersQuery);
+      const players = playersSnap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() }))
+        .filter(player => player.id !== user.uid);
+      setAlivePlayers(players);
+    };
+
+    fetchAlivePlayers();
+  }, [user]);
 
   const handleInputChange = (e) => {
     setFormData({
@@ -31,7 +47,6 @@ const SubmitKillProof = () => {
   const handleMediaChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (max 50MB for videos, 10MB for images)
       const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
       if (file.size > maxSize) {
         setError(`File too large. Max size: ${file.type.startsWith('video/') ? '50MB for videos' : '10MB for images'}`);
@@ -57,13 +72,11 @@ const SubmitKillProof = () => {
     setUploadProgress(0);
 
     try {
-      // Check game state and purge mode
       const gameRef = doc(firestore, 'game', 'state');
       const gameSnap = await getDoc(gameRef);
       const gameData = gameSnap.data();
       const isPurgeMode = gameData?.purgeMode || false;
 
-      // Get submitter's data
       const submitterRef = doc(firestore, 'players', user.uid);
       const submitterSnap = await getDoc(submitterRef);
       
@@ -75,7 +88,6 @@ const SubmitKillProof = () => {
       
       const submitterData = submitterSnap.data();
 
-      // Validate target if not in purge mode
       if (!isPurgeMode) {
         if (!submitterData.targetId) {
           setError('You do not have an assigned target. Please contact an admin.');
@@ -83,7 +95,6 @@ const SubmitKillProof = () => {
           return;
         }
 
-        // Get the target's data to compare names
         const targetRef = doc(firestore, 'players', submitterData.targetId);
         const targetSnap = await getDoc(targetRef);
         
@@ -95,16 +106,13 @@ const SubmitKillProof = () => {
         
         const targetData = targetSnap.data();
         const assignedTargetName = targetData.fullName;
-        const submittedTargetName = formData.targetName.trim();
         
-        // Compare target names (case-insensitive)
-        if (assignedTargetName.toLowerCase() !== submittedTargetName.toLowerCase()) {
+        if (assignedTargetName.toLowerCase() !== formData.targetName.trim().toLowerCase()) {
           setError(`It is not Purge Mode. You may only assassinate your target.`);
           setIsLoading(false);
           return;
         }
 
-        // Check if target is still alive
         if (!targetData.isAlive) {
           setError(`${assignedTargetName} has already been eliminated. Please refresh your dashboard for a new target.`);
           setIsLoading(false);
@@ -112,20 +120,17 @@ const SubmitKillProof = () => {
         }
       }
 
-      // Upload media with progress
       const timestamp = Date.now();
       const fileExtension = media.name.split('.').pop();
       const fileName = `${timestamp}_${user.uid}.${fileExtension}`;
       const mediaRef = ref(storage, `kill-proofs/${fileName}`);
       
-      // Simulate upload progress
       const uploadTask = uploadBytes(mediaRef, media);
       uploadTask.then(() => setUploadProgress(100));
       
       const uploadResult = await uploadTask;
       const mediaUrl = await getDownloadURL(uploadResult.ref);
 
-      // Submit proof with additional metadata
       const proofData = {
         submittedBy: user.uid,
         submitterName: submitterData?.fullName || 'Unknown',
@@ -143,9 +148,9 @@ const SubmitKillProof = () => {
         reviewedAt: null,
       };
 
+      console.log('Kill proof document created successfully:', proofData);
       await addDoc(collection(firestore, 'killProofs'), proofData);
 
-      // Success feedback
       setUploadProgress(100);
       setTimeout(() => {
         navigate('/dashboard');
@@ -184,6 +189,66 @@ const SubmitKillProof = () => {
         .upload-progress {
           background: linear-gradient(90deg, #10b981 0%, #10b981 var(--progress), transparent var(--progress));
         }
+
+                /* Custom dropdown styling to limit visible options */
+        .custom-dropdown {
+          appearance: none;
+          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+          background-position: right 0.75rem center;
+          background-repeat: no-repeat;
+          background-size: 1.5em 1.5em;
+          padding-right: 3rem;
+        }
+
+        /* Limit dropdown height to show only 4-5 options */
+        .custom-dropdown option {
+          padding: 8px 12px;
+          color: #000;
+          background-color: #fff;
+        }
+
+        .custom-dropdown option:hover {
+          background-color: #f3f4f6;
+        }
+
+        .custom-dropdown option:checked {
+          background-color: #ef4444;
+          color: white;
+        }
+
+        /* For browsers that support it, limit the dropdown size */
+        @supports (-webkit-appearance: none) {
+          .custom-dropdown {
+            overflow-y: auto;
+          }
+        }
+
+        /* Firefox specific styling */
+        @-moz-document url-prefix() {
+          .custom-dropdown {
+            scrollbar-width: thin;
+            scrollbar-color: #ef4444 rgba(255, 255, 255, 0.1);
+          }
+        }
+
+        /* Webkit browsers dropdown styling */
+        .custom-dropdown::-webkit-scrollbar {
+          width: 8px;
+        }
+
+        .custom-dropdown::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+        }
+
+        .custom-dropdown::-webkit-scrollbar-thumb {
+          background: #ef4444;
+          border-radius: 4px;
+        }
+
+        .custom-dropdown::-webkit-scrollbar-thumb:hover {
+          background: #dc2626;
+        }
+      
       `}</style>
 
       <div className="min-h-screen flex items-center justify-center px-4 py-8">
@@ -212,6 +277,7 @@ const SubmitKillProof = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Target Name */}
+                           {/* Target Name */}
               <motion.div 
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
@@ -220,15 +286,21 @@ const SubmitKillProof = () => {
                 <label className="block text-sm font-semibold text-gray-300 mb-2">
                   🎯 Target Name
                 </label>
-                <input
-                  type="text"
+                <select
                   name="targetName"
+                  id="targetName"
                   value={formData.targetName}
                   onChange={handleInputChange}
-                  placeholder="Full name of who you splashed"
-                  className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200"
+                  className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200 custom-dropdown"
                   required
-                />
+                >
+                  <option value="" disabled className="text-black">Select a target</option>
+                  {alivePlayers.map(player => (
+                    <option key={player.id} value={player.fullName} className="text-black">
+                      {player.fullName}
+                    </option>
+                  ))}
+                </select>
               </motion.div>
 
               {/* Location */}
@@ -243,6 +315,7 @@ const SubmitKillProof = () => {
                 <input
                   type="text"
                   name="location"
+                  id="location"
                   value={formData.location}
                   onChange={handleInputChange}
                   placeholder="Where did the elimination happen?"
@@ -389,7 +462,7 @@ const SubmitKillProof = () => {
                   className="flex-1 py-4 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-2xl transition-all duration-300 font-heading text-lg"
                   disabled={isLoading}
                 >
-                  ← Back
+                  Return to Dashboard
                 </motion.button>
                 
                 <motion.button

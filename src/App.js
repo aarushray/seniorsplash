@@ -12,6 +12,8 @@ import './index.css';
 import AdminRoute from './components/AdminRoute';
 import Profile from './pages/Profile';
 import LeaderBoard from './pages/LeaderBoard';
+import KillFeed from './pages/killFeed';
+import './App.css';
 
 function App() {
   return (
@@ -57,6 +59,14 @@ function App() {
         element={
           <PrivateRoute>
             <LeaderBoard />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/killfeed"
+        element={
+          <PrivateRoute>
+            <KillFeed />
           </PrivateRoute>
         }
       />

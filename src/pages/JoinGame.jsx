@@ -4,6 +4,7 @@ import { firestore } from '../firebase/config';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { getGamePin } from '../utils/gamePin';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 const JoinGame = () => {
   const { currentUser } = useAuth();
@@ -69,12 +70,17 @@ const JoinGame = () => {
     setError('');
     
     try {
-      const userRef = doc(firestore, 'players', currentUser.uid);
-      await updateDoc(userRef, {
-        isInGame: true,
-        gameJoinedAt: new Date()
-      });
+const playersRef = collection(firestore, 'players');
+const q = query(playersRef, where('uid', '==', currentUser.uid));
+const querySnapshot = await getDocs(q);
 
+if (!querySnapshot.empty) {
+  const playerDoc = querySnapshot.docs[0];
+  await updateDoc(playerDoc.ref, {
+    isInGame: true,
+    gameJoinedAt: new Date()
+  });
+}
       navigate('/dashboard');
     } catch (err) {
       setError('Failed to join game. Please try again.');

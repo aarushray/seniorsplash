@@ -5,6 +5,7 @@ import { auth } from '../firebase/config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { firestore } from '../firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
+import '../Login.css';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ const Login = () => {
       const playerData = playerSnap.exists() ? playerSnap.data() : null;
       const isInGame = playerData && playerData.isInGame;
 
-      if (gameStarted && isInGame) {
+      if (isInGame) {
         navigate("/dashboard");
       } else {
         navigate("/joingame");
@@ -51,47 +52,6 @@ const Login = () => {
 
   return (
     <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap');
-        
-        body {
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-          background-attachment: fixed;
-          color: #E2E8F0;
-          font-family: 'Rajdhani', sans-serif;
-          position: relative;
-          overflow-x: hidden;
-        }
-
-        body::before {
-          content: '';
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%23075985' fill-opacity='0.1' d='M0,96L48,112C96,128,192,160,288,186.7C384,213,480,235,576,213.3C672,192,768,128,864,128C960,128,1056,192,1152,208C1248,224,1344,192,1392,176L1440,160L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
-          background-size: cover;
-          animation: waveFloat 20s ease-in-out infinite;
-          z-index: -1;
-        }
-
-        @keyframes waveFloat {
-          0%, 100% { transform: translateY(0) scale(1); }
-          50% { transform: translateY(-20px) scale(1.02); }
-        }
-
-        .glass-card {
-          background: rgba(255, 255, 255, 0.08);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-
-        .glow-text {
-          text-shadow: 0 0 20px currentColor;
-        }
-      `}</style>
-
       <div className="min-h-screen flex items-center justify-center px-4 py-8">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
@@ -146,7 +106,7 @@ const Login = () => {
                   id="email"
                   name="email"
                   type="email"
-                  placeholder="Email or username"
+                  placeholder="Email"
                   className="w-full pl-12 pr-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white/20 transition-all duration-200 backdrop-blur-sm"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

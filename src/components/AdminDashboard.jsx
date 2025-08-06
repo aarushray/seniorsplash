@@ -10,6 +10,7 @@ import { getAssassinsForPlayer } from '../utils/assassinIdentity';
 import { reassignTargetsAfterPurge } from '../utils/reassignTargetsAfterPurge';
 import { handleVerify, handleReject } from '../utils/killProofActions';
 import { updateGamePin, getGamePin, subscribeToGamePin, validateGamePin, generateRandomPin } from '../utils/gamePin';
+import { removePlayerFromGame } from '../utils/adminActions';
 
 const AdminDashboard = () => {
   const [killProofs, setKillProofs] = useState([]);
@@ -32,6 +33,12 @@ const AdminDashboard = () => {
   const [gamePin, setGamePin] = useState('');
   const [gamePinInput, setGamePinInput] = useState('');
   const [gamePinLoading, setGamePinLoading] = useState(false);
+  const [removePlayerStudentId, setRemovePlayerStudentId] = useState('');
+const [removePlayerStatus, setRemovePlayerStatus] = useState('');
+const [isRemovingPlayer, setIsRemovingPlayer] = useState(false);
+
+
+
 
   useEffect(() => {
   const unsubscribe = subscribeToGamePin((pin) => {
@@ -41,6 +48,45 @@ const AdminDashboard = () => {
 
   return () => unsubscribe();
 }, []);
+
+const handleRemovePlayer = async () => {
+  if (!removePlayerStudentId.trim()) {
+    alert('Please enter a student ID');
+    return;
+  }
+  
+  const confirmRemoval = window.confirm(
+    `Are you sure you want to remove player with student ID "${removePlayerStudentId}" from the game? This action cannot be undone.`
+  );
+  
+  if (!confirmRemoval) return;
+  
+  setIsRemovingPlayer(true);
+  setRemovePlayerStatus('Removing player...');
+  
+  try {
+    const result = await removePlayerFromGame(removePlayerStudentId.trim());
+    
+    if (result.success) {
+      setRemovePlayerStatus(`Successfully removed ${result.playerName} (${result.playerClass})`);
+      setRemovePlayerStudentId('');
+      alert(`✅ Player ${result.playerName} has been removed from the game.`);
+      
+      // Clear status after 5 seconds
+      setTimeout(() => setRemovePlayerStatus(''), 5000);
+    }
+  } catch (error) {
+    console.error('Error removing player:', error);
+    setRemovePlayerStatus(`Failed to remove player: ${error.message}`);
+    alert(`❌ ${error.message}`);
+    
+    // Clear status after 5 seconds
+    setTimeout(() => setRemovePlayerStatus(''), 5000);
+  } finally {
+    setIsRemovingPlayer(false);
+  }
+};
+
 
   // Add these handler functions
   const handleGamePinUpdate = async () => {
@@ -109,30 +155,54 @@ const handleRemoveBounty = async () => {
 };
 
 
-  useEffect(() => {
-
-    const fetchPurgeStatus = async () => {
+useEffect(() => {
+  const fetchPurgeStatus = async () => {
+    try {
       const status = await getPurgeModeStatus();
       setIsPurgeMode(status);
-    };
-    fetchPurgeStatus();
+    } catch (error) {
+      console.error('Error fetching purge status:', error);
+      setIsPurgeMode(false);
+    }
+  };
+  fetchPurgeStatus();
 
-    const q = query(
-      collection(firestore, 'killProofs'), 
-      orderBy('timestamp', 'desc')
-    );
-    
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+  // ✅ SIMPLIFIED: Use getDocs instead of onSnapshot to avoid listener issues
+  const loadKillProofs = async () => {
+    try {
+      const killProofsRef = collection(firestore, 'killProofs');
+      const snapshot = await getDocs(killProofsRef);
+      
       const proofsData = [];
-      querySnapshot.forEach((doc) => {
+      snapshot.forEach((doc) => {
         proofsData.push({ id: doc.id, ...doc.data() });
       });
+      
+      // Sort manually
+      proofsData.sort((a, b) => {
+        const timeA = a.timestamp?.toDate?.()?.getTime() || 0;
+        const timeB = b.timestamp?.toDate?.()?.getTime() || 0;
+        return timeB - timeA;
+      });
+      
       setKillProofs(proofsData);
       setIsLoading(false);
-    });
+    } catch (error) {
+      console.error('Error loading kill proofs:', error);
+      setKillProofs([]);
+      setIsLoading(false);
+    }
+  };
 
-    return () => unsubscribe();
-  }, []);
+  loadKillProofs();
+
+  // Refresh every 30 seconds
+  const interval = setInterval(loadKillProofs, 30000);
+
+  return () => {
+    clearInterval(interval);
+  };
+}, []);
 
   const handleStartGame = async () => {
     setStatus('Starting game...');
@@ -328,7 +398,38 @@ const handleRemoveBounty = async () => {
           {status && <p className="mt-4 text-center text-sm text-gray-600">{status}</p>}
           {purgeStatus && <p className="mt-2 text-center text-sm text-yellow-600">{purgeStatus}</p>}
         </div>
-        
+
+<div>
+  <h2 className="text-xl font-bold text-gray-300 mb-4">🚫 Remove Player</h2>
+  <div className="space-y-4">
+    <input
+      type="text"
+      value={removePlayerStudentId}
+      onChange={(e) => setRemovePlayerStudentId(e.target.value)}
+      placeholder="Enter student ID..."
+      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200"
+      onKeyPress={(e) => e.key === 'Enter' && handleRemovePlayer()}
+    />
+    <button 
+      onClick={handleRemovePlayer}
+      disabled={isRemovingPlayer || !removePlayerStudentId.trim()}
+      className="w-full py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-semibold rounded-2xl transition-all"
+    >
+      {isRemovingPlayer ? 'Removing...' : '🚫 Remove Player'}
+    </button>
+    {removePlayerStatus && (
+      <p className={`mt-2 text-center text-sm ${
+        removePlayerStatus.includes('Successfully') ? 'text-green-400' : 'text-red-400'
+      }`}>
+        {removePlayerStatus}
+      </p>
+    )}
+    <p className="text-xs text-gray-400 text-center">
+      ⚠️ Warning: This will remove the player from the game and reassign their target to their assassin(s).
+    </p>
+  </div>
+</div>
+
         <div>
           <h2 className="text-xl font-bold text-gray-800 mb-4">Send Announcement</h2>
           <div className="space-y-4">

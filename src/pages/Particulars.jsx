@@ -15,32 +15,39 @@ const Particulars = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!currentUser) {
-      navigate('/login');
-      return;
-    }
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (!currentUser) {
+    navigate('/login');
+    return;
+  }
 
-    setIsSubmitting(true);
-    setError('');
+  console.log('Current user UID:', currentUser.uid); // Add this debug log
 
-    try {
-      const userRef = doc(firestore, 'players', currentUser.uid);
-      await updateDoc(userRef, {
-        fullName,
-        studentClass,
-        studentId,
-      });
+  setIsSubmitting(true);
+  setError('');
 
-      navigate('/joingame');
-    } catch (err) {
-      console.error('Failed to update particulars:', err);
-      setError('Failed to save your information. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  try {
+    const userRef = doc(firestore, 'players', currentUser.uid);
+    
+    const trimmedFullName = fullName.trim();
+    const trimmedStudentClass = studentClass.trim();
+    const trimmedStudentId = studentId.trim();
+    
+    // Keep using updateDoc since the document should exist
+    await updateDoc(userRef, {
+      fullName: trimmedFullName,
+      studentClass: trimmedStudentClass,
+      studentId: trimmedStudentId,
+    });
+
+    navigate('/joingame');
+  } catch (err) {
+    setError('Failed to save your information. Please try again.');
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <>

@@ -1,4 +1,3 @@
-// First, let's verify your PurgeMode utility functions
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import { collection, getDocs, writeBatch } from 'firebase/firestore';

@@ -1,6 +1,6 @@
 import { collection, addDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
-import { query, doc, updateDoc, getDoc, writeBatch, getDocs} from 'firebase/firestore';
+import { query, doc, updateDoc, getDoc, writeBatch, getDocs, where} from 'firebase/firestore';
 import { badges } from './Badges';
 import { reassignTargets } from './reassignTargets';
 import { createKillAnnouncement } from '../components/Announcements';
@@ -42,7 +42,8 @@ const checkBadgeRequirements = async (playerId) => {
           qualifies = daysSurvived >= badge.requirement;
           break;
         case 'game_winner':
-          qualifies = playerData.isWinner || false;
+          // ✅ UPDATED: Check if player is alive AND only one class remains
+          qualifies = await checkAngelOfLightRequirements(playerId, playerData);
           break;
       }
       
@@ -55,6 +56,71 @@ const checkBadgeRequirements = async (playerId) => {
   } catch (error) {
     console.error('Error checking badge requirements:', error);
     return [];
+  }
+};
+
+// ✅ NEW FUNCTION: Check if Angel of Light should be awarded
+const checkAngelOfLightRequirements = async (playerId, playerData) => {
+  try {
+    // Must be alive
+    if (!playerData.isAlive) {
+      return false;
+    }
+
+    // Get all alive players
+    const playersQuery = query(
+      collection(firestore, 'players'), 
+      where('isAlive', '==', true)
+    );
+    const playersSnapshot = await getDocs(playersQuery);
+    
+    const alivePlayersByClass = {};
+    let totalAlivePlayers = 0;
+    
+    // Group alive players by class
+    playersSnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (data.isAlive && data.studentClass) {
+        const className = data.studentClass;
+        if (!alivePlayersByClass[className]) {
+          alivePlayersByClass[className] = [];
+        }
+        alivePlayersByClass[className].push({
+          id: doc.id,
+          ...data
+        });
+        totalAlivePlayers++;
+      }
+    });
+
+    // Count how many classes have alive players
+    const classesWithAlivePlayers = Object.keys(alivePlayersByClass).length;
+    
+    console.log(`Angel of Light check for ${playerData.fullName}:`);
+    console.log(`- Player is alive: ${playerData.isAlive}`);
+    console.log(`- Total alive players: ${totalAlivePlayers}`);
+    console.log(`- Classes with alive players: ${classesWithAlivePlayers}`);
+    console.log(`- Alive players by class:`, alivePlayersByClass);
+    
+    // Award Angel of Light if:
+    // 1. Player is alive
+    // 2. Only ONE class has alive players remaining
+    // 3. This player is in that class
+    if (classesWithAlivePlayers === 1) {
+      const remainingClass = Object.keys(alivePlayersByClass)[0];
+      const playerIsInRemainingClass = playerData.studentClass === remainingClass;
+      
+      console.log(`- Only class ${remainingClass} remains`);
+      console.log(`- Player ${playerData.fullName} is in class ${playerData.studentClass}`);
+      console.log(`- Player qualifies: ${playerIsInRemainingClass}`);
+      
+      return playerIsInRemainingClass;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking Angel of Light requirements:', error);
+    return false;
   }
 };
 
@@ -113,7 +179,7 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
       console.log('Bounty kill detected');
       const newBountyKills = (killerData.bountyKills || 0) + 1;
       batch.update(killerRef, {
-        bountyKills: newBountyKills, // ✅ Now actually updates the database
+        bountyKills: newBountyKills,
         lastKillAt: new Date()
       });
     }
@@ -132,27 +198,41 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
     // COMMIT THE BATCH FIRST to update the database
     await batch.commit();
     
-    // NOW check badges with updated data
-    const updatedKillerData = {
-      ...killerData,
-      kills: newKillCount,
-      splashes: newSplashCount,
-      lastKillAt: new Date()
-    };
+    // ✅ IMPORTANT: Check badges for ALL alive players after elimination
+    // This ensures Angel of Light is awarded when a class elimination happens
+    const allPlayersQuery = query(
+      collection(firestore, 'players'), 
+      where('isAlive', '==', true)
+    );
+    const allPlayersSnapshot = await getDocs(allPlayersQuery);
     
-    const newBadges = await checkBadgeRequirements(proof.submittedBy);
+    const allNewBadges = [];
     
-    // If there are new badges, update them in a separate operation
-    if (newBadges.length > 0) {
-      const currentBadges = killerData.badges || [];
-      await updateDoc(killerRef, {
-        badges: [...currentBadges, ...newBadges],
-        lastBadgeEarned: newBadges[newBadges.length - 1],
-        lastBadgeTimestamp: new Date()
-      });
+    // Check badges for each alive player (including the killer)
+    for (const playerDoc of allPlayersSnapshot.docs) {
+      const playerId = playerDoc.id;
+      const newBadges = await checkBadgeRequirements(playerId);
+      
+      if (newBadges.length > 0) {
+        const playerData = playerDoc.data();
+        const currentBadges = playerData.badges || [];
+        
+        await updateDoc(doc(firestore, 'players', playerId), {
+          badges: [...currentBadges, ...newBadges],
+          lastBadgeEarned: newBadges[newBadges.length - 1],
+          lastBadgeTimestamp: new Date()
+        });
+        
+        // Track if this is the killer's badges for the announcement
+        if (playerId === proof.submittedBy) {
+          allNewBadges.push(...newBadges);
+        }
+        
+        console.log(`✅ Awarded badges to ${playerData.fullName}:`, newBadges);
+      }
     }
-
-    await createKillAnnouncement(proof, newKillCount, newBadges);
+    
+    await createKillAnnouncement(proof, newKillCount, allNewBadges);
     
     // Check if purge mode
     const isPurgeMode = gameData?.purgeMode || false;
@@ -180,13 +260,13 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
       victimName: proof.targetName,
       location: proof.location,
       verifiedAt: new Date(),
-      badgesAwarded: newBadges,
+      badgesAwarded: allNewBadges,
       killCount: newKillCount,
       splashCount: newSplashCount
     });
     
     setAdminNotes('');
-    const badgeText = newBadges.length > 0 ? ` (${newBadges.length} badge${newBadges.length > 1 ? 's' : ''} awarded!)` : '';
+    const badgeText = allNewBadges.length > 0 ? ` (${allNewBadges.length} badge${allNewBadges.length > 1 ? 's' : ''} awarded!)` : '';
     alert(`✅ Kill verified! ${proof.targetName} eliminated by ${proof.submitterName}${badgeText}`);
     
   } catch (error) {
@@ -213,7 +293,6 @@ export const handleReject = async (proof, adminNotes, setProcessingIds, setAdmin
       adminNotes: adminNotes
     });
 
-    
     setAdminNotes('');
     alert(`❌ Kill proof rejected for ${proof.targetName}`);
     

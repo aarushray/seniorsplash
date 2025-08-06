@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { doc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, writeBatch, updateDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import assignTargets from './assignTargets';
 
@@ -15,6 +15,46 @@ export const startGame = async () => {
       where('isInGame', '==', true)
     );
     const playersSnapshot = await getDocs(playersQuery);
+
+  const playersSnap = await getDocs(collection(firestore, 'players'));
+    for (const playerDoc of playersSnap.docs) {
+        await updateDoc(doc(firestore, 'players', playerDoc.id), {
+            // Core game state
+            isAlive: true,
+            isInGame: true,
+            
+            // Statistics that reset each game
+            kills: 0,
+            splashes: 0,
+            purgeKills: 0,
+            recentKills: [],
+            bountyKills: 0,
+            
+            // Proof and verification
+            proofs: [],
+            pendingProofs: [],
+                  
+            removedFromGame: false,
+            removedAt: null,
+            
+            // Timing and assignments
+            gameJoinedAt: gameStartTime,
+            eliminatedAt: null,
+            eliminatedBy: null,
+            lastKnownLocation: '',
+            locationUpdatedAt: null,
+            
+            // Badge system
+            badges: [],
+            lastBadgeEarned: null,
+            lastBadgeTimestamp: null,
+            earnedBadges: [],
+
+            deathMessage: null,
+            messageToKiller: null
+        });
+      }
+
     
     // Create batch update
     const batch = writeBatch(firestore);
@@ -22,13 +62,6 @@ export const startGame = async () => {
     
     console.log('Updating player join times...');
     
-    // Update all players' gameJoinedAt to the current time
-    playersSnapshot.forEach((playerDoc) => {
-      console.log(`Updating player ${playerDoc.id} join time`);
-      batch.update(playerDoc.ref, {
-        gameJoinedAt: gameStartTime
-      });
-    });
     
     // Update game state
     const gameStateRef = doc(firestore, 'game', 'state');

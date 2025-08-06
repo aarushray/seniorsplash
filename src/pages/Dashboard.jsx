@@ -154,6 +154,30 @@ useEffect(() => {
   }, [currentUser]);
 
 
+  // is the player alive
+useEffect(() => {
+  if (!currentUser) return;
+
+  const playerRef = doc(firestore, 'players', currentUser.uid);
+  const unsubscribe = onSnapshot(playerRef, (doc) => {
+    if (doc.exists()) {
+      const data = doc.data();
+      // Update the currentUser's isAlive status in your auth context or local state
+      // You'll need to add a method to your AuthContext to update this
+      if (data.isAlive !== undefined) {
+        // For now, you can store it in local state
+        // If you have an updateUser method in AuthContext, use that instead
+        console.log('Player alive status:', data.isAlive);
+      }
+    }
+  }, (error) => {
+    console.error('Error listening to player alive status:', error);
+  });
+
+  return () => unsubscribe();
+}, [currentUser]);
+
+
 // Add this useEffect for Purge Mode listener
 useEffect(() => {
   
@@ -271,7 +295,6 @@ useEffect(() => {
     }
   };
 
-  // --- Render ---
   return (
     <>
 <style>{`
@@ -452,7 +475,54 @@ useEffect(() => {
       padding: 24px;
     }
   }
-`}</style>
+
+/* Hide dashboard in portrait, show rotation prompt */
+@media screen and (max-width: 768px) and (orientation: portrait) {
+  .dashboard-grid {
+    display: none !important;
+  }
+  
+  header {
+    display: none !important;
+  }
+  
+  .rotation-prompt {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+    padding: 20px;
+    background: var(--primary-bg);
+  }
+}
+
+/* Show dashboard in landscape, hide rotation prompt */
+@media screen and (max-width: 768px) and (orientation: landscape) {
+  .rotation-prompt {
+    display: none !important;
+  }
+  
+  .dashboard-grid {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 16px;
+  }
+  
+  header {
+    display: block !important;
+    padding: 24px 16px !important;
+  }
+}
+
+/* Default state for larger screens */
+@media screen and (min-width: 769px) {
+  .rotation-prompt {
+    display: none !important;
+  }
+}` }</style>
 
 
     {/* Purge Mode Banner */}
@@ -611,9 +681,13 @@ useEffect(() => {
               >
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
                 <div className="relative z-10">
-                  <p className="text-3xl font-bold">{!currentUser?.isAlive ? '❤️' : '💔'}</p>
-                  <p className="text-2xl font-bold mt-2 text-green-300 animate-pulse">{!currentUser?.isAlive ? 'Alive' : 'Dead'}</p>
-                  <p className="text-sm opacity-90">{!currentUser?.isAlive ? 'Don\'t die...' : 'Bruh you died'}</p>
+                  <p className="text-3xl font-bold">{playerData?.isAlive ? '❤️' : '💔'}</p>
+                  <p className="text-2xl font-bold mt-2 text-green-300 animate-pulse">
+                    {playerData?.isAlive ? 'Alive' : 'Dead'}
+                  </p>
+                  <p className="text-sm opacity-90">
+                    {playerData?.isAlive ? 'Stay vigilant!' : 'Game Over'}
+                  </p>
                 </div>
               </motion.div>
               
@@ -664,8 +738,9 @@ useEffect(() => {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 shadow-2xl font-heading text-lg relative overflow-hidden"
+              className="w-full text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 shadow-2xl font-heading text-lg relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => navigate('/submit-proof')}
+              disabled={!playerData?.isAlive}
             >
               <span className="relative z-10">💀 SUBMIT SPLASH PROOF</span>
               <div className="absolute inset-0 bg-white/10 translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500"></div>
@@ -707,6 +782,16 @@ useEffect(() => {
       <div className="absolute inset-0 bg-white/10 translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500"></div>
     </motion.button>
 
+    {/* Kill Feed Navigation Button */}
+    <motion.button
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      className="w-full text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 shadow-xl font-heading text-lg relative overflow-hidden"
+      onClick={() => navigate('/killfeed')}
+    >
+      <span className="relative z-10">🎯 WATCH KILL FEED</span>
+      <div className="absolute inset-0 bg-white/10 translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500"></div>
+    </motion.button>
 
     {/* Enhanced Announcements */}
     <motion.div 
@@ -895,6 +980,11 @@ useEffect(() => {
 
   </div>
       </main>
+<div className="rotation-prompt">
+  <div className="text-6xl mb-4">📱</div>
+  <h2 className="text-2xl font-bold mb-4">Please Rotate Your Device</h2>
+  <p className="text-gray-400">This app works best in landscape mode</p>
+</div>
     </>
   );
 };

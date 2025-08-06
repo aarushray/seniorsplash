@@ -33,10 +33,10 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
         `}
         style={{
           borderColor: isEarned ? theme.border : '',
-          boxShadow: isEarned ? `0 0 50px ${theme.glow}40` : 'none'
+          boxShadow: isEarned ? `0 0 15px ${theme.glow}60, 0 0 45px ${theme.glow}30` : 'none'
         }}
         whileHover={isEarned ? {
-          boxShadow: `0 0 50px ${theme.glow}, 0 0 100px ${theme.glow}40`,
+          boxShadow: `0 0 25px ${theme.glow}, 0 0 60px ${theme.glow}80, 0 0 120px ${theme.glow}40`,
         } : {}}
       >
         {/* Always-on Glow Layer */}
@@ -90,11 +90,11 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
             style={{
               background: `conic-gradient(${theme.glow}, transparent, ${theme.glow})`,
               zIndex: -2,
-              filter: 'blur(8px)'
+              filter: 'blur(12px)'
             }}
             whileHover={{
-              opacity: 0.8,
-              scale: 1.5,
+              opacity: 1,
+              scale: 1.6,
               rotate: 360,
               transition: {
                 duration: 2,

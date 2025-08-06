@@ -1,123 +1,96 @@
 import { doc, onSnapshot } from 'firebase/firestore';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { firestore } from '../firebase/config';
 
 export const useSurvivalTime = (playerData, setSurvivalTime) => {
+  const [gameState, setGameState] = useState(null);
 
+  // Listen to game state
   useEffect(() => {
-    if (!playerData?.gameJoinedAt) {
-      console.log('No gameJoinedAt found, setting survival time to --');
+    const gameStateRef = doc(firestore, 'game', 'state');
+    
+    const unsubscribe = onSnapshot(gameStateRef, (doc) => {
+      if (doc.exists()) {
+        setGameState(doc.data());
+      } else {
+        setGameState(null);
+      }
+    }, (error) => {
+      console.error('Error listening to game state:', error);
+      setGameState(null);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Calculate survival time
+  useEffect(() => {
+    if (!playerData) {
       setSurvivalTime('--');
       return;
     }
 
-    let interval;
-    let gameStateUnsubscribe;
+    // Check if game has started
+    if (!gameState || !gameState.gameStarted) {
+      setSurvivalTime('Game not started');
+      return;
+    }
 
-    // Subscribe to real-time game state changes
-    const gameRef = doc(firestore, 'game', 'state');
-    gameStateUnsubscribe = onSnapshot(gameRef, (gameSnap) => {
+    // Use game start time or player join time, whichever is more recent
+    const gameStartTime = gameState.gameStartedAt;
+    const playerJoinTime = playerData.gameJoinedAt;
+    
+    // Determine which timestamp to use
+    let startTime = null;
+    if (gameStartTime && playerJoinTime) {
+      // Use the later of the two times
+      const gameStart = gameStartTime.toDate ? gameStartTime.toDate() : new Date(gameStartTime);
+      const playerJoin = playerJoinTime.toDate ? playerJoinTime.toDate() : new Date(playerJoinTime);
+      startTime = gameStart > playerJoin ? gameStart : playerJoin;
+    } else if (gameStartTime) {
+      startTime = gameStartTime.toDate ? gameStartTime.toDate() : new Date(gameStartTime);
+    } else if (playerJoinTime) {
+      startTime = playerJoinTime.toDate ? playerJoinTime.toDate() : new Date(playerJoinTime);
+    }
+
+    if (!startTime) {
+      setSurvivalTime('No start time');
+      return;
+    }
+
+    const updateSurvivalTime = () => {
       try {
-        if (gameSnap.exists()) {
-          const gameData = gameSnap.data();
-          
-          if (!gameData.gameStarted) {
-            setSurvivalTime('--');
-            // Clear any existing interval
-            if (interval) {
-              clearInterval(interval);
-              interval = null;
-            }
-            return;
-          }
-
-          // Game has started - start the survival timer
-          const updateSurvivalTime = () => {
-            try {
-              // Handle both Firestore Timestamp and regular Date objects
-              const joinTime = playerData.gameJoinedAt.toDate ?
-                playerData.gameJoinedAt.toDate() :
-                new Date(playerData.gameJoinedAt);
-
-              const now = new Date();
-              const diffMs = now - joinTime;
-
-              // Handle negative time (future date)
-              if (diffMs < 0) {
-                setSurvivalTime('0m');
-                return;
-              }
-
-              // Calculate time components
-              const hours = Math.floor(diffMs / (1000 * 60 * 60));
-              const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-              const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-
-              // Format display based on duration
-              if (hours === 0 && minutes < 5) {
-                setSurvivalTime(`${minutes}m ${seconds}s`);
-              } else if (hours === 0) {
-                setSurvivalTime(`${minutes}m`);
-              } else if (hours < 24) {
-                setSurvivalTime(`${hours}h ${minutes}m`);
-              } else {
-                const days = Math.floor(hours / 24);
-                const remainingHours = hours % 24;
-                setSurvivalTime(`${days}d ${remainingHours}h`);
-              }
-            } catch (error) {
-              console.error('Error calculating survival time:', error);
-              setSurvivalTime('--');
-            }
-          };
-
-          // Clear any existing interval before starting a new one
-          if (interval) {
-            clearInterval(interval);
-          }
-
-          // Call immediately to get initial value
-          updateSurvivalTime();
-
-          // Calculate update frequency dynamically
-          const getUpdateFrequency = () => {
-            try {
-              const joinTime = playerData.gameJoinedAt.toDate ?
-                playerData.gameJoinedAt.toDate() :
-                new Date(playerData.gameJoinedAt);
-
-              const now = new Date();
-              const diffMs = now - joinTime;
-              const hours = Math.floor(diffMs / (1000 * 60 * 60));
-              const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-
-              // Update every second for first 5 minutes, then every minute
-              return (hours === 0 && minutes < 5) ? 1000 : 60000;
-            } catch (error) {
-              console.error('Error calculating update frequency:', error);
-              return 60000; // Default to 1 minute
-            }
-          };
-
-          interval = setInterval(updateSurvivalTime, getUpdateFrequency());
-        } else {
+        const now = new Date();
+        const diffMs = now - startTime;
+        
+        if (diffMs < 0) {
           setSurvivalTime('--');
+          return;
+        }
+        
+        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+        
+        if (days > 0) {
+          setSurvivalTime(`${days}d ${hours}h ${minutes}m`);
+        } else if (hours > 0) {
+          setSurvivalTime(`${hours}h ${minutes}m`);
+        } else if (minutes > 0) {
+          setSurvivalTime(`${minutes}m ${seconds}s`);
+        } else {
+          setSurvivalTime(`${seconds}s`);
         }
       } catch (error) {
-        console.error('Error in game state listener:', error);
-        setSurvivalTime('--');
-      }
-    });
-
-    // Cleanup function
-    return () => {
-      console.log('Cleaning up survival time hook');
-      if (interval) {
-        clearInterval(interval);
-      }
-      if (gameStateUnsubscribe) {
-        gameStateUnsubscribe();
+        console.error('Error calculating survival time:', error);
+        setSurvivalTime('Error');
       }
     };
-  }, [playerData?.gameJoinedAt, setSurvivalTime]);
+
+    updateSurvivalTime();
+    const interval = setInterval(updateSurvivalTime, 1000); // Update every second for more precision
+
+    return () => clearInterval(interval);
+  }, [playerData, gameState, setSurvivalTime]);
 };

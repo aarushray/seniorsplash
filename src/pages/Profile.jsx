@@ -10,9 +10,8 @@ const Profile = () => {
   const navigate = useNavigate();
   const [user] = useAuthState(auth);
   const [selectedAvatar, setSelectedAvatar] = useState(0);
-  const [deathMessage, setDeathMessage] = useState('');
+  const [fullName, setFullName] = useState('');
   const [messageToKiller, setMessageToKiller] = useState('');
-  const [wordCount, setWordCount] = useState(0);
   const [killerMessageWordCount, setKillerMessageWordCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -53,10 +52,9 @@ const Profile = () => {
         const data = playerSnap.data();
         setPlayerData(data);
         setSelectedAvatar(data.avatarIndex || 0);
-        setDeathMessage(data.deathMessage || '');
+        setFullName(data.fullName || '');
         setMessageToKiller(data.messageToKiller || '');
-        setWordCount(data.deathMessage ? data.deathMessage.split(' ').length : 0);
-        setKillerMessageWordCount(data.messageToKiller ? data.messageToKiller.split(' ').length : 0);
+        setKillerMessageWordCount(data.messageToKiller ? data.messageToKiller.split(' ').filter(word => word.length > 0).length : 0);
         
         // Set existing profile photo if available
         if (data.profilePhotoURL) {
@@ -76,16 +74,6 @@ const Profile = () => {
     }
   }, [user, loadPlayerData]);
 
-  const handleMessageChange = (e) => {
-    const message = e.target.value;
-    const words = message.trim().split(/\s+/).filter(word => word.length > 0);
-    
-    if (words.length <= 15) {
-      setDeathMessage(message);
-      setWordCount(words.length);
-    }
-  };
-
   const handleKillerMessageChange = (e) => {
     const message = e.target.value;
     const words = message.trim().split(/\s+/).filter(word => word.length > 0);
@@ -93,6 +81,14 @@ const Profile = () => {
     if (words.length <= 20) {
       setMessageToKiller(message);
       setKillerMessageWordCount(words.length);
+    }
+  };
+
+  const handleFullNameChange = (e) => {
+    const name = e.target.value;
+    // Limit to 50 characters for reasonable name length
+    if (name.length <= 50) {
+      setFullName(name);
     }
   };
 
@@ -158,6 +154,12 @@ const Profile = () => {
   const handleSave = async () => {
     if (!user) return;
     
+    // Validate full name
+    if (!fullName.trim()) {
+      alert('Please enter your full name');
+      return;
+    }
+    
     setIsSaving(true);
     try {
       let profilePhotoURL = playerData?.profilePhotoURL || '';
@@ -183,8 +185,8 @@ const Profile = () => {
       
       const playerRef = doc(firestore, 'players', user.uid);
       await updateDoc(playerRef, {
+        fullName: fullName.trim(),
         avatarIndex: selectedAvatar,
-        deathMessage: deathMessage.trim(),
         messageToKiller: messageToKiller.trim(),
         profilePhotoURL: profilePhotoURL,
         profileUpdatedAt: new Date()
@@ -278,7 +280,7 @@ const Profile = () => {
                 </span>
               </h1>
               <p className="text-gray-400 text-lg">
-                Customize your avatar, photo, and final messages
+                Customize your name, avatar, photo, and messages
               </p>
             </motion.div>
 
@@ -336,6 +338,28 @@ const Profile = () => {
                     Max 5MB • JPG, PNG, GIF
                   </p>
                 </div>
+
+                {/* Full Name Input */}
+                <div className="space-y-4">
+                  <label className="block text-sm font-semibold text-gray-300">
+                    👤 Full Name
+                  </label>
+                  
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={handleFullNameChange}
+                    placeholder="Enter your full name"
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-white/20 transition-all duration-200"
+                    required
+                  />
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-400">
+                      {fullName.length}/50 characters
+                    </span>
+                  </div>
+                </div>
               </motion.div>
 
               {/* Avatar Selection */}
@@ -385,7 +409,7 @@ const Profile = () => {
                 </div>
               </motion.div>
 
-              {/* Messages */}
+              {/* Message to Killer */}
               <motion.div 
                 initial={{ x: 20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
@@ -393,7 +417,7 @@ const Profile = () => {
                 className="space-y-6"
               >
                 <h2 className="text-2xl font-bold font-heading text-center mb-6">
-                  💬 Messages
+                  💬 Message
                 </h2>
                 
                 {/* Message to Killer */}
@@ -406,7 +430,7 @@ const Profile = () => {
                     value={messageToKiller}
                     onChange={handleKillerMessageChange}
                     placeholder="Good luck, you'll need it..."
-                    rows={3}
+                    rows={4}
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200 resize-none"
                   />
                   
@@ -419,30 +443,6 @@ const Profile = () => {
                     )}
                   </div>
                 </div>
-
-                {/* Death Message */}
-                <div className="space-y-4">
-                  <label className="block text-sm font-semibold text-gray-300">
-                    Death announcement (max 15 words)
-                  </label>
-                  
-                  <textarea
-                    value={deathMessage}
-                    onChange={handleMessageChange}
-                    placeholder="GG, you got me! See you in Valhalla..."
-                    rows={3}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:bg-white/20 transition-all duration-200 resize-none"
-                  />
-                  
-                  <div className="flex justify-between items-center">
-                    <span className={`text-sm ${wordCount > 15 ? 'text-red-400' : 'text-gray-400'}`}>
-                      {wordCount}/15 words
-                    </span>
-                    {wordCount > 15 && (
-                      <span className="text-red-400 text-sm">Too many words!</span>
-                    )}
-                  </div>
-                </div>
               </motion.div>
             </div>
 
@@ -451,10 +451,10 @@ const Profile = () => {
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.5 }}
-              className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6"
+              className="mt-8"
             >
               {/* Target File Preview */}
-              <div className="bg-white/5 border border-red-500/30 rounded-2xl p-6">
+              <div className="bg-white/5 border border-red-500/30 rounded-2xl p-6 max-w-md mx-auto">
                 <h3 className="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
                   🎯 Target File Preview
                 </h3>
@@ -472,7 +472,7 @@ const Profile = () => {
                   )}
                   <div>
                     <p className="font-bold text-red-300 text-lg">
-                      {playerData?.fullName || 'Your Name'}
+                      {fullName || 'Your Name'}
                     </p>
                     <p className="text-gray-400 text-sm">Target Acquired</p>
                   </div>
@@ -484,35 +484,6 @@ const Profile = () => {
                     </p>
                   </div>
                 )}
-              </div>
-
-              {/* Death Announcement Preview */}
-              <div className="bg-white/5 border border-gray-500/30 rounded-2xl p-6">
-                <h3 className="text-lg font-bold text-purple-400 mb-4 flex items-center gap-2">
-                  💀 Death Announcement Preview
-                </h3>
-                <div className="bg-red-900/30 border border-red-500/30 rounded-xl p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    {photoPreview ? (
-                      <img 
-                        src={photoPreview} 
-                        alt="Player" 
-                        className="w-8 h-8 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-xl">{avatars[selectedAvatar]?.emoji}</span>
-                    )}
-                    <span className="font-bold text-red-300">
-                      {playerData?.fullName || 'Your Name'}
-                    </span>
-                    <span className="text-gray-400">was eliminated</span>
-                  </div>
-                  {deathMessage && (
-                    <p className="text-gray-300 italic text-sm">
-                      "{deathMessage}"
-                    </p>
-                  )}
-                </div>
               </div>
             </motion.div>
 
@@ -534,7 +505,7 @@ const Profile = () => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleSave}
-                disabled={isSaving || wordCount > 15 || killerMessageWordCount > 20 || isUploadingPhoto}
+                disabled={isSaving || !fullName.trim() || killerMessageWordCount > 20 || isUploadingPhoto}
                 className="flex-1 py-4 bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 hover:from-purple-500 hover:via-pink-500 hover:to-red-500 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl font-heading text-lg"
               >
                 {isSaving ? (

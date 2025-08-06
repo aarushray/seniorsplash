@@ -29,20 +29,48 @@ const Register = () => {
       const user = userCredential.user;
 
       await setDoc(doc(firestore, 'players', user.uid), {
+        // Core identifiers
         uid: user.uid,
         email: user.email,
-        kills: 0,
+        
+        // Profile information (filled later in particulars)
+        fullName: '',
+        studentClass: '',
+        profilePhotoURL: '',
+        avatarIndex: 0,
+        messageToKiller: '',
+        
+        // Game state
         isInGame: false,
         isAlive: true,
+        targetId: null,
+        
+        // Location tracking
+        lastKnownLocation: '',
+        locationUpdatedAt: null,
+
+        removedFromGame: false,
+        removedAt: null,
+        
+        // Statistics
+        kills: 0,
+        splashes: 0,
+        purgeKills: 0,
+        bountyKills: 0,
+        
+        // Game timing
+        gameJoinedAt: null,
+        createdAt: new Date(),
+        
+        // Achievements
         badges: [],
         recentKills: [],
-        purgeKills: 0,
-        gameJoinedAt: null,
         lastBadgeEarned: null,
         lastBadgeTimestamp: null,
-        createdAt: new Date(),
-        bountyKills: 0,
-        splashes:0
+        earnedBadges: [],
+        
+        // Admin flags
+        isAdmin: false,
       });
 
       navigate('/particulars');

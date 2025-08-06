@@ -4,6 +4,7 @@ import { getAuth } from 'firebase/auth'; // Initialize auth
 import { getFirestore } from 'firebase/firestore'; // If you're using Firestore
 import { getStorage } from 'firebase/storage'; // If you're using Storage
 
+
 const firebaseConfig = {
   apiKey: "AIzaSyAiQ-RNWANPzmOvwdOccaUXLO0eVAj7roA",
   authDomain: "senior-splash-b225f.firebaseapp.com",

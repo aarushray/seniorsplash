@@ -2,9 +2,7 @@ import { doc, updateDoc, getDocs, collection, deleteDoc } from 'firebase/firesto
 import { firestore } from '../firebase/config';
 import { badges } from './Badges';
 
-/**
- * Ends the game and resets all relevant fields for a new game.
- */
+
 export async function endGame() {
     // Update game-wide settings
     const gameStateRef = doc(firestore, 'game', 'state');
@@ -26,7 +24,7 @@ export async function endGame() {
         await updateDoc(doc(firestore, 'players', playerDoc.id), {
             // Core game state
             isAlive: true,
-            isInGame: true,
+            isInGame: false,
             targetId: null,
             
             // Statistics that reset each game
@@ -114,5 +112,7 @@ const clearAllPendingKills = async () => {
     console.error('Error clearing pending kills:', error);
   }
 };
+
+
 
 export default endGame;
