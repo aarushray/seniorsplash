@@ -98,15 +98,6 @@ export const badges = [
     requirement: 1,
     category: 'rare'
   },
-  // {
-  //   id: 'persephone_grasp',
-  //   icon: '🪦',
-  //   title: 'Persephone\'s Grasp',
-  //   description: 'From the underworld, you dragged another soul down with you.',
-  //   trigger: 'mutual_elimination',
-  //   requirement: 1,
-  //   category: 'rare'
-  // },
 ];
 
 // Badge checking logic
