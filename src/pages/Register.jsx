@@ -4,6 +4,7 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, firestore } from '../firebase/config';
 import { motion } from 'framer-motion';
+import { runTransaction } from 'firebase/firestore';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -33,16 +34,16 @@ const handleSubmit = async (e) => {
       throw new Error('User creation failed - invalid user data');
     }
 
-    console.log('Creating document for user:', user.uid); // Debug log
-
     // Use a transaction or add retry logic for critical data
-    await setDoc(doc(firestore, 'players', user.uid), {
-      // Core identifiers
-      uid: user.uid,
-      email: user.email,
-      
-      // Profile information (filled later in particulars)
-      fullName: '',
+    await runTransaction(firestore, async (transaction) => {
+      const playerRef = doc(firestore, 'players', user.uid);
+      transaction.set(playerRef, {
+        // Core identifiers
+        uid: user.uid,
+        email: user.email,
+
+        // Profile information (filled later in particulars)
+        fullName: '',
       studentClass: '',
       studentId: '', // Add this if missing
       profilePhotoURL: '',
@@ -83,10 +84,20 @@ const handleSubmit = async (e) => {
     });
 
     console.log('Document created successfully for:', user.uid); // Debug log
-    navigate('/particulars');
-    
+    navigate('/particulars');   
+  });
+
   } catch (err) {
     console.error('Registration error:', err);
+
+      if (err.code !== 'auth/email-already-in-use' && auth.currentUser) {
+    try {
+      await auth.currentUser.delete();
+      console.log('Cleaned up orphaned auth account');
+    } catch (deleteError) {
+      console.error('Failed to clean up auth account:', deleteError);
+    }
+    }
     
     // More specific error handling
     if (err.code === 'auth/email-already-in-use') {
