@@ -1,24 +1,23 @@
 // src/firebase/config.js
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth'; // Initialize auth
-import { getFirestore } from 'firebase/firestore'; // If you're using Firestore
-import { getStorage } from 'firebase/storage'; // If you're using Storage
-
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAiQ-RNWANPzmOvwdOccaUXLO0eVAj7roA",
-  authDomain: "senior-splash-b225f.firebaseapp.com",
-  projectId: "senior-splash-b225f",
-  storageBucket: "senior-splash-b225f.firebasestorage.app",
-  messagingSenderId: "744844064311",
-  appId: "1:744844064311:web:0af8b58f19862838ffb1b2",
-  measurementId: "G-CNMMTWHWK7"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
 // Export services
-export const auth = getAuth(app); // Firebase auth
-export const firestore = getFirestore(app); // Firestore (if you're using it)
-export const storage = getStorage(app); // Storage (if you're using it)
+export const auth = getAuth(app);
+export const firestore = getFirestore(app);
+export const storage = getStorage(app);

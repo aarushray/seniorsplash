@@ -8,16 +8,17 @@ import assignTargets from './assignTargets';
 export const startGame = async () => {
   try {
     console.log('Preparing game...');
-    
-    // Get all players who are in the game
-    const playersQuery = query(
-      collection(firestore, 'players'),
-      where('isInGame', '==', true)
-    );
-    const playersSnapshot = await getDocs(playersQuery);
 
-  const playersSnap = await getDocs(collection(firestore, 'players'));
-    for (const playerDoc of playersSnap.docs) {
+    const gameStartTime = new Date();
+    
+    const playersQuery = query(
+    collection(firestore, 'players'),
+    where('isInGame', '==', true)
+  );
+  const playersSnapshot = await getDocs(playersQuery);
+
+  // Only process players who are actually in the game
+  for (const playerDoc of playersSnapshot.docs) {
         await updateDoc(doc(firestore, 'players', playerDoc.id), {
             // Core game state
             isAlive: true,
@@ -58,7 +59,7 @@ export const startGame = async () => {
     
     // Create batch update
     const batch = writeBatch(firestore);
-    const gameStartTime = new Date();
+    
     
     console.log('Updating player join times...');
     

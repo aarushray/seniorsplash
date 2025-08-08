@@ -1,4 +1,4 @@
-import { collection, getDoc, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDoc, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 
 function shuffleArray(array) {
@@ -108,14 +108,20 @@ const assignTargets = async () => {
     throw new Error('Game has not started yet. No targets can be assigned.');
   }
 
-  const querySnapshot = await getDocs(collection(firestore, 'players'));
+  // Only get alive players who are in the game
+  const playersQuery = query(
+    collection(firestore, 'players'),
+    where('isAlive', '==', true),
+    where('isInGame', '==', true)
+  );
+  const querySnapshot = await getDocs(playersQuery);
   const players = [];
   querySnapshot.forEach((docSnap) => {
     players.push({ id: docSnap.id, ...docSnap.data() });
   });
 
   if (players.length < 2) {
-    throw new Error('Not enough players to start the game.');
+    throw new Error('Not enough alive players in the game to start. Need at least 2 players.');
   }
 
   // Group players by class
@@ -136,6 +142,8 @@ const assignTargets = async () => {
     console.log('Only one class found - cannot assign cross-class targets');
     throw new Error('Cannot start game with only one class. Players must be from different classes to target each other.');
   }
+
+  console.log(`Found ${players.length} alive players in the game across ${classes.length} classes`);
 
   // Use the optimal assignment algorithm
   const { assignments, targetAssignmentCount } = assignTargetsOptimally(classes, playersByClass);
