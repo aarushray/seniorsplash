@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
@@ -13,7 +13,37 @@ const Particulars = () => {
   const [studentId, setStudentId] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Load existing user data when component mounts
+  React.useEffect(() => {
+    const loadUserData = async () => {
+      if (!currentUser) {
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const playerRef = doc(firestore, 'players', currentUser.uid);
+        const playerSnap = await getDoc(playerRef);
+        
+        if (playerSnap.exists()) {
+          const playerData = playerSnap.data();
+          // Pre-fill form with existing data (if any)
+          setFullName(playerData.fullName || '');
+          setStudentClass(playerData.studentClass || '');
+          setStudentId(playerData.studentId || '');
+        }
+      } catch (err) {
+        console.error('Error loading user data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadUserData();
+  }, [currentUser, navigate]);
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -39,6 +69,45 @@ const handleSubmit = async (e) => {
       fullName: trimmedFullName,
       studentClass: trimmedStudentClass,
       studentId: trimmedStudentId,
+
+      
+      isAlive: true,
+      isInGame: false,
+      targetId: null,
+      
+      // Statistics that reset each game
+      kills: 0,
+      splashes: 0,
+      purgeKills: 0,
+      recentKills: [],
+      bountyKills: 0,
+      
+      // Proof and verification
+      proofs: [],
+      pendingProofs: [],
+      
+      // Timing and assignments
+      gameJoinedAt: null,
+      targetAssignedAt: null,
+      eliminatedAt: null,
+      eliminatedBy: null,
+      lastKnownLocation: '',
+      locationUpdatedAt: null,
+      
+      // Badge system
+      badges: [],
+      lastBadgeEarned: null,
+      lastBadgeTimestamp: null,
+      earnedBadges: [],
+      
+      // Profile fields that should persist
+      // fullName: KEEP
+      // email: KEEP
+      // studentClass: KEEP
+      // profilePhotoURL: KEEP
+      // avatarIndex: KEEP
+      deathMessage: null,
+      messageToKiller: null
     });
 
     navigate('/joingame');
@@ -48,6 +117,14 @@ const handleSubmit = async (e) => {
     setIsSubmitting(false);
   }
 };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
 
   return (
     <>

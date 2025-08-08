@@ -5,6 +5,7 @@ import { auth } from '../firebase/config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { firestore } from '../firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
+import { getClassDominationState } from '../utils/classCheck';
 import '../Login.css';
 
 const Login = () => {
@@ -37,6 +38,35 @@ const Login = () => {
       const gameStarted = gameSnap.exists() && gameSnap.data().gameStarted;
       const playerData = playerSnap.exists() ? playerSnap.data() : null;
       const isInGame = playerData && playerData.isInGame;
+
+      // Check if user has incomplete profile (empty or "Unnamed Player")
+      const fullName = playerData?.fullName || '';
+      const studentClass = playerData?.studentClass || '';
+      const studentId = playerData?.studentId || '';
+      
+      const isProfileIncomplete = !fullName || 
+                                 fullName === 'Unnamed Player' || 
+                                 fullName.trim() === '' ||
+                                 !studentClass || 
+                                 studentClass.trim() === '' ||
+                                 !studentId || 
+                                 studentId.trim() === '';
+
+      if (isProfileIncomplete) {
+        // Redirect to particulars to complete registration
+        navigate("/particulars");
+        return;
+      }
+
+      // Check for class domination state
+      const classDomination = await getClassDominationState();
+      if (classDomination) {
+        // Store class domination state in localStorage for dashboard access
+        localStorage.setItem('classDomination', JSON.stringify(classDomination));
+      } else {
+        // Clear any existing class domination state
+        localStorage.removeItem('classDomination');
+      }
 
       if (isInGame) {
         navigate("/dashboard");

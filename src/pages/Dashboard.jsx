@@ -5,10 +5,12 @@ import { doc, onSnapshot, query, collection, where, updateDoc } from 'firebase/f
 import { firestore } from '../firebase/config';
 import Announcements from '../components/Announcements'; // Assuming this component is styled appropriately
 import PlayerDashboard from '../components/PlayerDashboard';
+import ClassDominationPopup from '../components/ClassDominationPopup';
 import { getBadgeById } from '../utils/BadgeManager'; 
 import { motion } from "framer-motion"
 import { useSurvivalTime } from '../utils/survivalTime';
 import { useCallback } from 'react';
+import { getClassDominationState } from '../utils/classCheck';
 
 
 const Dashboard = () => {
@@ -46,6 +48,8 @@ const Dashboard = () => {
   const [bountyData, setBountyData] = useState(null);
   const [bountyTimeRemaining, setBountyTimeRemaining] = useState('');
   const [newlyEarnedBadge, setNewlyEarnedBadge] = useState(null);
+  const [showClassDomination, setShowClassDomination] = useState(false);
+  const [classDominationData, setClassDominationData] = useState(null);
 
 
   // Add this useEffect to check for new badges
@@ -189,8 +193,19 @@ useEffect(() => {
       const data = doc.data();
       const purgeMode = data.purgeMode || false;
       setIsPurgeMode(purgeMode);
+      
+      // Check for class domination state
+      if (data.classDomination) {
+        setClassDominationData(data.classDomination);
+        setShowClassDomination(true);
+      } else {
+        setShowClassDomination(false);
+        setClassDominationData(null);
+      }
     } else {
       setIsPurgeMode(false);
+      setShowClassDomination(false);
+      setClassDominationData(null);
     }
   }, (error) => {
     console.error('Error listening to purge mode status:', error);
@@ -295,6 +310,11 @@ useEffect(() => {
     }
   };
 
+  const handleCloseClassDomination = () => {
+    setShowClassDomination(false);
+    setClassDominationData(null);
+  };
+
   return (
     <>
 <style>{`
@@ -386,6 +406,15 @@ useEffect(() => {
   
   .glow-text {
     text-shadow: 0 0 15px currentColor;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
   .target-pulse {
@@ -985,6 +1014,14 @@ useEffect(() => {
   <h2 className="text-2xl font-bold mb-4">Please Rotate Your Device</h2>
   <p className="text-gray-400">This app works best in landscape mode</p>
 </div>
+
+      {/* Class Domination Popup */}
+      <ClassDominationPopup
+        isVisible={showClassDomination}
+        winningClass={classDominationData?.winningClass}
+        playerCount={classDominationData?.playerCount}
+        onClose={handleCloseClassDomination}
+      />
     </>
   );
 };

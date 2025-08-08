@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { badges } from '../utils/Badges';
 import BadgeSlot from './BadgeSlot';
 import BadgePopup from './BadgePopup';
+import ClassDominationPopup from './ClassDominationPopup';
 import { motion } from 'framer-motion';
 
 const PlayerDashboard = ({ playerData }) => {
   const [earnedBadges, setEarnedBadges] = useState([]);
   const [selectedBadge, setSelectedBadge] = useState(null);
+  const [showClassDomination, setShowClassDomination] = useState(false);
+  const [classDominationData, setClassDominationData] = useState(null);
 
   useEffect(() => {
     if (playerData?.badges) {
@@ -19,6 +22,27 @@ const PlayerDashboard = ({ playerData }) => {
       setEarnedBadges(fetchedBadges);
     }
   }, [playerData]);
+
+  // Check for class domination on component mount
+  useEffect(() => {
+    const classDomination = localStorage.getItem('classDomination');
+    if (classDomination) {
+      try {
+        const data = JSON.parse(classDomination);
+        setClassDominationData(data);
+        setShowClassDomination(true);
+        // Clear from localStorage so it doesn't show again on refresh
+        localStorage.removeItem('classDomination');
+      } catch (error) {
+        console.error('Error parsing class domination data:', error);
+      }
+    }
+  }, []);
+
+  const handleCloseClassDomination = () => {
+    setShowClassDomination(false);
+    setClassDominationData(null);
+  };
 
   const handleBadgeClick = (badge) => {
     setSelectedBadge(badge);
@@ -60,6 +84,14 @@ const PlayerDashboard = ({ playerData }) => {
           onClose={() => setSelectedBadge(null)} 
         />
       )}
+
+      {/* Class Domination Popup */}
+      <ClassDominationPopup
+        isVisible={showClassDomination}
+        winningClass={classDominationData?.winningClass}
+        playerCount={classDominationData?.playerCount}
+        onClose={handleCloseClassDomination}
+      />
     </div>
   );
 };

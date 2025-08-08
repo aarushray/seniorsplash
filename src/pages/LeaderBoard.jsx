@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, getDocs, query } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,7 +21,10 @@ const LeaderBoard = () => {
     try {
       setLoading(true);
 
-      const playersQuery = query(collection(firestore, 'players'));
+      const playersQuery = query(
+        collection(firestore, 'players'),
+        where('isInGame', '==', true)
+      );
       const playersSnap = await getDocs(playersQuery);
       const allPlayers = playersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 

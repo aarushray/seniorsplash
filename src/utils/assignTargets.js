@@ -117,7 +117,13 @@ const assignTargets = async () => {
   const querySnapshot = await getDocs(playersQuery);
   const players = [];
   querySnapshot.forEach((docSnap) => {
-    players.push({ id: docSnap.id, ...docSnap.data() });
+    const playerData = docSnap.data();
+    // Double-check that the player is actually alive and in the game
+    if (playerData.isAlive && playerData.isInGame) {
+      players.push({ id: docSnap.id, ...playerData });
+    } else {
+      console.warn(`Skipping player ${docSnap.id} - isAlive: ${playerData.isAlive}, isInGame: ${playerData.isInGame}`);
+    }
   });
 
   if (players.length < 2) {

@@ -1,5 +1,3 @@
-import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { doc, collection, query, where, getDocs, writeBatch, updateDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import assignTargets from './assignTargets';
@@ -9,7 +7,6 @@ export const startGame = async () => {
   try {
     console.log('Preparing game...');
 
-    const gameStartTime = new Date();
     
     const playersQuery = query(
     collection(firestore, 'players'),
@@ -17,12 +14,24 @@ export const startGame = async () => {
   );
   const playersSnapshot = await getDocs(playersQuery);
 
+  if (playersSnapshot.size < 2) {
+    throw new Error(`Cannot start game with ${playersSnapshot.size} player(s). Minimum 2 players required.`);
+  }
+
+  const gameStartTime = new Date();
   // Only process players who are actually in the game
   for (const playerDoc of playersSnapshot.docs) {
+        const playerData = playerDoc.data();
+        // Double-check that the player is actually in the game
+        if (!playerData.isInGame) {
+          console.warn(`Skipping player ${playerDoc.id} - not in game`);
+          continue;
+        }
+        
         await updateDoc(doc(firestore, 'players', playerDoc.id), {
             // Core game state
             isAlive: true,
-            isInGame: true,
+            // Keep isInGame as true (don't change it)
             
             // Statistics that reset each game
             kills: 0,
@@ -87,36 +96,3 @@ export const startGame = async () => {
     throw error;
   }
 };
-
-// Component version that uses the exported function
-const StartGame = () => {
-  const { currentUser } = useAuth();
-  const [status, setStatus] = useState('');
-
-  const handleStartGame = async () => {
-    setStatus('Starting game...');
-    try {
-      const result = await startGame();
-      setStatus('Game has started! Targets assigned.');
-      alert(`Game has started! ${result.playerCount} players updated with start time.`);
-    } catch (error) {
-      setStatus('Failed to start game');
-      alert(error?.message || 'Failed to start game. Check console for details.');
-    }
-  };
-
-  return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold mb-4">Admin: Start the Game</h1>
-      <button
-        onClick={handleStartGame}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-      >
-        Start Game
-      </button>
-      <p className="mt-4">{status}</p>
-    </div>
-  );
-};
-
-export default StartGame;

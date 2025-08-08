@@ -11,6 +11,8 @@ import { reassignTargetsAfterPurge } from '../utils/reassignTargetsAfterPurge';
 import { handleVerify, handleReject } from '../utils/killProofActions';
 import { updateGamePin, getGamePin, subscribeToGamePin, validateGamePin, generateRandomPin } from '../utils/gamePin';
 import { removePlayerFromGame } from '../utils/adminActions';
+import { checkClassDomination, clearClassDominationState } from '../utils/classCheck';
+import ClassDominationPopup from './ClassDominationPopup';
 
 const AdminDashboard = () => {
   const [killProofs, setKillProofs] = useState([]);
@@ -36,6 +38,9 @@ const AdminDashboard = () => {
   const [removePlayerStudentId, setRemovePlayerStudentId] = useState('');
 const [removePlayerStatus, setRemovePlayerStatus] = useState('');
 const [isRemovingPlayer, setIsRemovingPlayer] = useState(false);
+const [showClassDomination, setShowClassDomination] = useState(false);
+const [classDominationData, setClassDominationData] = useState(null);
+const [isCheckingClass, setIsCheckingClass] = useState(false);
 
 
 
@@ -296,6 +301,43 @@ useEffect(() => {
     setAssassinResults(null);
   };
 
+  const handleCheckClassDomination = async () => {
+    setIsCheckingClass(true);
+    try {
+      const result = await checkClassDomination();
+      
+      if (result.hasWinningClass) {
+        setClassDominationData({
+          winningClass: result.winningClass,
+          playerCount: result.playerCount
+        });
+        setShowClassDomination(true);
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      console.error('Error checking class domination:', error);
+      alert('Failed to check class domination. Please try again.');
+    } finally {
+      setIsCheckingClass(false);
+    }
+  };
+
+  const handleCloseClassDomination = () => {
+    setShowClassDomination(false);
+    setClassDominationData(null);
+  };
+
+  const handleClearClassDomination = async () => {
+    try {
+      await clearClassDominationState();
+      alert('Class domination state cleared successfully!');
+    } catch (error) {
+      console.error('Error clearing class domination state:', error);
+      alert('Failed to clear class domination state. Please try again.');
+    }
+  };
+
   const setBounty = async (targetName, prize, description) => {
   const bountyRef = doc(firestore, 'game', 'bounty');
   await setDoc(bountyRef, {
@@ -362,6 +404,15 @@ useEffect(() => {
         .glow-text {
           text-shadow: 0 0 20px currentColor;
         }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+        
+        .animate-pulse {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
       `}</style>
 
       <div className="min-h-screen p-8">
@@ -393,6 +444,19 @@ useEffect(() => {
             <button onClick={handleEndGame} className="w-full py-3 bg-gradient-to-r from-red-500 to-red-600 text-white font-semibold rounded-2xl">End Game</button>
             <button onClick={handleTogglePurgeMode} className={`w-full py-3 text-white font-semibold rounded-2xl ${isPurgeMode ? 'bg-yellow-500' : 'bg-purple-600'}`}>
               {isPurgeMode ? 'Deactivate Purge Mode' : 'Activate Purge Mode'}
+            </button>
+            <button 
+              onClick={handleCheckClassDomination}
+              disabled={isCheckingClass}
+              className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-semibold rounded-2xl transition-all duration-200"
+            >
+              {isCheckingClass ? '🔍 Scanning...' : '🏆 Check Class Domination'}
+            </button>
+            <button 
+              onClick={handleClearClassDomination}
+              className="w-full py-3 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white font-semibold rounded-2xl transition-all duration-200"
+            >
+              🗑️ Clear Class Domination
             </button>
           </div>
           {status && <p className="mt-4 text-center text-sm text-gray-600">{status}</p>}
@@ -874,6 +938,14 @@ useEffect(() => {
           </AnimatePresence>
         </div>
         </div>
+
+        {/* Class Domination Popup */}
+        <ClassDominationPopup
+          isVisible={showClassDomination}
+          winningClass={classDominationData?.winningClass}
+          playerCount={classDominationData?.playerCount}
+          onClose={handleCloseClassDomination}
+        />
     </>
   );
 };

@@ -25,7 +25,8 @@ export async function reassignTargets(killerUid, victimId) {
     const affectedAssassinsQuery = query(
       collection(firestore, 'players'),
       where('targetId', '==', victimId),
-      where('isAlive', '==', true)
+      where('isAlive', '==', true),
+      where('isInGame', '==', true)
     );
     
     const affectedAssassinsSnap = await getDocs(affectedAssassinsQuery);
@@ -45,16 +46,24 @@ export async function reassignTargets(killerUid, victimId) {
     });
 
     if (!isPurgeMode) {
-      // Get all alive players (excluding the now-dead victim)
+      // Get all alive players who are in the game (excluding the now-dead victim)
       const alivePlayersQuery = query(
         collection(firestore, 'players'),
-        where('isAlive', '==', true)
+        where('isAlive', '==', true),
+        where('isInGame', '==', true)
       );
 
       const alivePlayersSnap = await getDocs(alivePlayersQuery);
       const alivePlayers = alivePlayersSnap.docs
         .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(player => player.id !== victimId); // Exclude the victim
+        .filter(player => {
+          // Double-check that the player is actually alive and in the game
+          if (!player.isAlive || !player.isInGame) {
+            console.warn(`Skipping player ${player.id} - isAlive: ${player.isAlive}, isInGame: ${player.isInGame}`);
+            return false;
+          }
+          return player.id !== victimId; // Exclude the victim
+        });
 
       // Check if game is over
       if (alivePlayers.length === 1) {
@@ -239,7 +248,8 @@ export async function getAssassinCount(targetId) {
     const assassinsQuery = query(
       collection(firestore, 'players'),
       where('targetId', '==', targetId),
-      where('isAlive', '==', true)
+      where('isAlive', '==', true),
+      where('isInGame', '==', true)
     );
     
     const assassinsSnap = await getDocs(assassinsQuery);
@@ -260,7 +270,8 @@ export async function getAssassinsTargeting(targetId) {
     const assassinsQuery = query(
       collection(firestore, 'players'),
       where('targetId', '==', targetId),
-      where('isAlive', '==', true)
+      where('isAlive', '==', true),
+      where('isInGame', '==', true)
     );
     
     const assassinsSnap = await getDocs(assassinsQuery);
@@ -288,11 +299,21 @@ export async function getTargetingStats() {
   try {
     const playersQuery = query(
       collection(firestore, 'players'),
-      where('isAlive', '==', true)
+      where('isAlive', '==', true),
+      where('isInGame', '==', true)
     );
     
     const playersSnap = await getDocs(playersQuery);
-    const players = playersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const players = playersSnap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(player => {
+        // Double-check that the player is actually alive and in the game
+        if (!player.isAlive || !player.isInGame) {
+          console.warn(`Skipping player ${player.id} in stats - isAlive: ${player.isAlive}, isInGame: ${player.isInGame}`);
+          return false;
+        }
+        return true;
+      });
     
     const stats = {
       totalPlayers: players.length,
