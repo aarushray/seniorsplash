@@ -20,22 +20,6 @@ const SubmitKillProof = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [alivePlayers, setAlivePlayers] = useState([]);
-
-  useEffect(() => {
-    const fetchAlivePlayers = async () => {
-      if (!user) return;
-
-      const playersQuery = query(collection(firestore, 'players'), where('isAlive', '==', true));
-      const playersSnap = await getDocs(playersQuery);
-      const players = playersSnap.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(player => player.id !== user.uid);
-      setAlivePlayers(players);
-    };
-
-    fetchAlivePlayers();
-  }, [user]);
 
   const handleInputChange = (e) => {
     setFormData({
@@ -87,8 +71,10 @@ const SubmitKillProof = () => {
       }
       
       const submitterData = submitterSnap.data();
+      const trimmedTargetName = formData.targetName.trim();
 
       if (!isPurgeMode) {
+        // Non-purge mode: Check if the target matches the assigned target
         if (!submitterData.targetId) {
           setError('You do not have an assigned target. Please contact an admin.');
           setIsLoading(false);
@@ -105,16 +91,42 @@ const SubmitKillProof = () => {
         }
         
         const targetData = targetSnap.data();
-        const assignedTargetName = targetData.fullName;
+        const assignedTargetName = targetData.fullName.trim();
         
-        if (assignedTargetName.toLowerCase() !== formData.targetName.trim().toLowerCase()) {
-          setError(`It is not Purge Mode. You may only assassinate your target.`);
+        if (assignedTargetName.toLowerCase() !== trimmedTargetName.toLowerCase()) {
+          setError(`It is not Purge Mode. You may only assassinate your assigned target: ${assignedTargetName}`);
           setIsLoading(false);
           return;
         }
 
         if (!targetData.isAlive) {
           setError(`${assignedTargetName} has already been eliminated. Please refresh your dashboard for a new target.`);
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        // Purge mode: Find the player by name and check if they are alive
+        const playersRef = collection(firestore, 'players');
+        const playerQuery = query(playersRef, where('fullName', '==', trimmedTargetName));
+        const playerSnapshot = await getDocs(playerQuery);
+        
+        if (playerSnapshot.empty) {
+          setError(`No player found with name: ${trimmedTargetName}`);
+          setIsLoading(false);
+          return;
+        }
+        
+        if (playerSnapshot.size > 1) {
+          setError(`Multiple players found with name: ${trimmedTargetName}. Please contact an admin.`);
+          setIsLoading(false);
+          return;
+        }
+        
+        const targetDoc = playerSnapshot.docs[0];
+        const targetData = targetDoc.data();
+        
+        if (!targetData.isAlive) {
+          setError(`${trimmedTargetName} has already been eliminated.`);
           setIsLoading(false);
           return;
         }
@@ -133,9 +145,9 @@ const SubmitKillProof = () => {
 
       const proofData = {
         submittedBy: user.uid,
-        submitterName: submitterData?.fullName || 'Unknown',
+        submitterName: submitterData?.fullName?.trim() || 'Unknown',
         submitterEmail: user.email,
-        targetName: formData.targetName.trim(),
+        targetName: trimmedTargetName,
         location: formData.location.trim(),
         description: formData.description.trim(),
         mediaUrl: mediaUrl,
@@ -189,66 +201,6 @@ const SubmitKillProof = () => {
         .upload-progress {
           background: linear-gradient(90deg, #10b981 0%, #10b981 var(--progress), transparent var(--progress));
         }
-
-                /* Custom dropdown styling to limit visible options */
-        .custom-dropdown {
-          appearance: none;
-          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-          background-position: right 0.75rem center;
-          background-repeat: no-repeat;
-          background-size: 1.5em 1.5em;
-          padding-right: 3rem;
-        }
-
-        /* Limit dropdown height to show only 4-5 options */
-        .custom-dropdown option {
-          padding: 8px 12px;
-          color: #000;
-          background-color: #fff;
-        }
-
-        .custom-dropdown option:hover {
-          background-color: #f3f4f6;
-        }
-
-        .custom-dropdown option:checked {
-          background-color: #ef4444;
-          color: white;
-        }
-
-        /* For browsers that support it, limit the dropdown size */
-        @supports (-webkit-appearance: none) {
-          .custom-dropdown {
-            overflow-y: auto;
-          }
-        }
-
-        /* Firefox specific styling */
-        @-moz-document url-prefix() {
-          .custom-dropdown {
-            scrollbar-width: thin;
-            scrollbar-color: #ef4444 rgba(255, 255, 255, 0.1);
-          }
-        }
-
-        /* Webkit browsers dropdown styling */
-        .custom-dropdown::-webkit-scrollbar {
-          width: 8px;
-        }
-
-        .custom-dropdown::-webkit-scrollbar-track {
-          background: rgba(0, 0, 0, 0.1);
-        }
-
-        .custom-dropdown::-webkit-scrollbar-thumb {
-          background: #ef4444;
-          border-radius: 4px;
-        }
-
-        .custom-dropdown::-webkit-scrollbar-thumb:hover {
-          background: #dc2626;
-        }
-      
       `}</style>
 
       <div className="min-h-screen flex items-center justify-center px-4 py-8">
@@ -277,7 +229,6 @@ const SubmitKillProof = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Target Name */}
-                           {/* Target Name */}
               <motion.div 
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
@@ -286,21 +237,16 @@ const SubmitKillProof = () => {
                 <label className="block text-sm font-semibold text-gray-300 mb-2">
                   🎯 Target Name
                 </label>
-                <select
+                <input
+                  type="text"
                   name="targetName"
                   id="targetName"
                   value={formData.targetName}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200 custom-dropdown"
+                  placeholder="Enter the target's full name"
+                  className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200"
                   required
-                >
-                  <option value="" disabled className="text-black">Select a target</option>
-                  {alivePlayers.map(player => (
-                    <option key={player.id} value={player.fullName} className="text-black">
-                      {player.fullName}
-                    </option>
-                  ))}
-                </select>
+                />
               </motion.div>
 
               {/* Location */}

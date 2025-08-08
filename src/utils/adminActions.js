@@ -4,23 +4,32 @@ import { badges } from './Badges';
 import { reassignTargets } from './reassignTargets';
 import { createKillAnnouncement } from '../components/Announcements';
 
-export const removePlayerFromGame = async (studentId) => {
+export const removePlayerFromGame = async (fullName) => {
   try {
-    // Find player by studentId
+    // Find player by fullName
+    const trimmedFullName = fullName.trim();
+    
+    // Get all players and filter by trimmed fullName
     const playersRef = collection(firestore, 'players');
-    const q = query(playersRef, where('studentId', '==', studentId));
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await getDocs(playersRef);
     
-    if (querySnapshot.empty) {
-      throw new Error(`No player found with student ID: ${studentId}`);
+    // Filter players by trimmed fullName
+    const matchingPlayers = querySnapshot.docs.filter(doc => {
+      const playerData = doc.data();
+      return playerData.fullName?.trim() === trimmedFullName;
+    });
+    
+    if (matchingPlayers.length === 0) {
+      throw new Error(`No player found with name: ${trimmedFullName}`);
     }
     
-    if (querySnapshot.size > 1) {
-      throw new Error(`Multiple players found with student ID: ${studentId}`);
+    if (matchingPlayers.length > 1) {
+      throw new Error(`Multiple players found with name: ${trimmedFullName}`);
     }
     
-    const playerDoc = querySnapshot.docs[0];
+    const playerDoc = matchingPlayers[0];
     const playerData = playerDoc.data();
+    
     
     // Update player status
     await updateDoc(playerDoc.ref, {

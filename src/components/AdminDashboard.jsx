@@ -56,12 +56,12 @@ const [isCheckingClass, setIsCheckingClass] = useState(false);
 
 const handleRemovePlayer = async () => {
   if (!removePlayerStudentId.trim()) {
-    alert('Please enter a student ID');
+    alert('Please enter a name');
     return;
   }
   
   const confirmRemoval = window.confirm(
-    `Are you sure you want to remove player with student ID "${removePlayerStudentId}" from the game? This action cannot be undone.`
+    `Are you sure you want to remove player with name "${removePlayerStudentId}" from the game? This action cannot be undone.`
   );
   
   if (!confirmRemoval) return;

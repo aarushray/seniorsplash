@@ -221,13 +221,9 @@ async function findNewTargetForPlayer(playerId, playerClass, alivePlayers, victi
     }
   }
   
-  // LAYER 4: Fallback - any alive player (same class allowed)
+  // LAYER 4: No fallback - return null if no suitable target found
   if (!newTargetId) {
-    if (potentialTargets.length > 0) {
-      const randomIndex = Math.floor(Math.random() * potentialTargets.length);
-      newTargetId = potentialTargets[randomIndex].id;
-      assignmentReason = 'Layer 4: Fallback - any alive player (same class)';
-    }
+    assignmentReason = 'Layer 4: No suitable target available';
   }
 
   if (newTargetId) {
