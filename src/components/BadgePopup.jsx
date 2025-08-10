@@ -141,7 +141,7 @@ const BadgePopup = ({ badge, onClose }) => {
         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-500" onClick={onClose}></div>
 
         <div
-          className="relative badge-popup-bg badge-popup-glow popup-enter rounded-3xl p-10 shadow-2xl w-[92%] max-w-3xl mx-4 transform transition-all duration-500"
+          className="relative badge-popup-bg badge-popup-glow popup-enter rounded-3xl p-8 shadow-2xl w-[85%] max-w-md mx-4 transform transition-all duration-500"
         >
           <div
             className="absolute inset-0 pointer-events-none"
@@ -150,13 +150,13 @@ const BadgePopup = ({ badge, onClose }) => {
 
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/20 z-10"
+            className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 transition-all duration-200 flex items-center justify-center backdrop-blur-sm border border-white/20 z-10"
             style={{ color: theme.text }}
           >
-            <span className="text-lg font-semibold">✕</span>
+            <span className="text-base font-semibold">✕</span>
           </button>
 
-          <div className="relative z-10 flex items-start gap-8">
+          <div className="relative z-10 flex flex-col items-center text-center gap-6">
             <div className="flex-shrink-0">
               <div className="relative">
                 <div
@@ -167,7 +167,7 @@ const BadgePopup = ({ badge, onClose }) => {
                   }}
                 ></div>
                 <span
-                  className="relative text-8xl block"
+                  className="relative text-6xl block"
                   style={{
                     filter: `drop-shadow(0 0 60px ${theme.glow})`,
                     textShadow: `0 0 80px ${theme.glow}`
@@ -180,7 +180,7 @@ const BadgePopup = ({ badge, onClose }) => {
 
             <div className="flex-1 min-w-0">
               <h3
-                className="text-3xl font-extrabold mb-4 leading-tight"
+                className="text-2xl font-extrabold mb-3 leading-tight"
                 style={{
                   color: theme.text,
                   textShadow: '0 2px 6px rgba(0,0,0,0.4)'
@@ -189,7 +189,7 @@ const BadgePopup = ({ badge, onClose }) => {
                 {badge.title}
               </h3>
               <p
-                className="text-lg opacity-95 leading-relaxed mb-6"
+                className="text-base opacity-95 leading-relaxed mb-5"
                 style={{
                   color: theme.text,
                   textShadow: '0 1px 3px rgba(0,0,0,0.3)'
@@ -198,16 +198,16 @@ const BadgePopup = ({ badge, onClose }) => {
                 {badge.description}
               </p>
 
-              <div className="flex gap-3">
+              <div className="flex gap-2 justify-center">
                 <span
-                  className="inline-block px-4 py-1.5 text-sm font-semibold rounded-full bg-black/30 backdrop-blur-sm border border-white/20"
+                  className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-black/30 backdrop-blur-sm border border-white/20"
                   style={{ color: theme.text }}
                 >
                   {badge.category.toUpperCase()}
                 </span>
 
                 <span
-                  className="inline-block px-4 py-1.5 text-sm font-semibold rounded-full bg-white/20 backdrop-blur-sm border border-white/30"
+                  className="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-white/20 backdrop-blur-sm border border-white/30"
                   style={{ color: theme.text }}
                 >
                   ✨ LEGENDARY

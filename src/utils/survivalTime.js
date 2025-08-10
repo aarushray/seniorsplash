@@ -30,6 +30,32 @@ export const useSurvivalTime = (playerData, setSurvivalTime) => {
       return;
     }
 
+    if (!playerData.isAlive) {
+      if (playerData.eliminatedAt && playerData.gameJoinedAt) {
+        const eliminatedTime = playerData.eliminatedAt.toDate ? 
+          playerData.eliminatedAt.toDate() : new Date(playerData.eliminatedAt);
+        const joinTime = playerData.gameJoinedAt.toDate ? 
+          playerData.gameJoinedAt.toDate() : new Date(playerData.gameJoinedAt);
+        const survivalMs = eliminatedTime - joinTime;
+        
+        // Format the final survival time
+        const days = Math.floor(survivalMs / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((survivalMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((survivalMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (days > 0) {
+          setSurvivalTime(`Survived: ${days}d ${hours}h ${minutes}m`);
+        } else if (hours > 0) {
+          setSurvivalTime(`Survived: ${hours}h ${minutes}m`);
+        } else {
+          setSurvivalTime(`Survived: ${minutes}m`);
+        }
+      } else {
+        setSurvivalTime('Eliminated');
+      }
+      return;
+    }
+
     // Check if game has started
     if (!gameState || !gameState.gameStarted) {
       setSurvivalTime('Game not started');
@@ -37,20 +63,19 @@ export const useSurvivalTime = (playerData, setSurvivalTime) => {
     }
 
     // Use game start time or player join time, whichever is more recent
-    const gameStartTime = gameState.gameStartedAt;
-    const playerJoinTime = playerData.gameJoinedAt;
-    
-    // Determine which timestamp to use
     let startTime = null;
-    if (gameStartTime && playerJoinTime) {
-      // Use the later of the two times
-      const gameStart = gameStartTime.toDate ? gameStartTime.toDate() : new Date(gameStartTime);
-      const playerJoin = playerJoinTime.toDate ? playerJoinTime.toDate() : new Date(playerJoinTime);
+    if (gameState.gameStartedAt && playerData.gameJoinedAt) {
+      const gameStart = gameState.gameStartedAt.toDate ? 
+        gameState.gameStartedAt.toDate() : new Date(gameState.gameStartedAt);
+      const playerJoin = playerData.gameJoinedAt.toDate ? 
+        playerData.gameJoinedAt.toDate() : new Date(playerData.gameJoinedAt);
       startTime = gameStart > playerJoin ? gameStart : playerJoin;
-    } else if (gameStartTime) {
-      startTime = gameStartTime.toDate ? gameStartTime.toDate() : new Date(gameStartTime);
-    } else if (playerJoinTime) {
-      startTime = playerJoinTime.toDate ? playerJoinTime.toDate() : new Date(playerJoinTime);
+    } else if (gameState.gameStartedAt) {
+      startTime = gameState.gameStartedAt.toDate ? 
+        gameState.gameStartedAt.toDate() : new Date(gameState.gameStartedAt);
+    } else if (playerData.gameJoinedAt) {
+      startTime = playerData.gameJoinedAt.toDate ? 
+        playerData.gameJoinedAt.toDate() : new Date(playerData.gameJoinedAt);
     }
 
     if (!startTime) {

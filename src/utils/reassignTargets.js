@@ -221,16 +221,44 @@ async function findNewTargetForPlayer(playerId, playerClass, alivePlayers, victi
     }
   }
   
-  // LAYER 4: No fallback - return null if no suitable target found
+// LAYER 4: Find the different-class player with the fewest assassins
+if (!newTargetId) {
+    const differentClassPlayers = potentialTargets.filter(player => 
+      player.studentClass !== playerClass
+    );
+    
+    if (differentClassPlayers.length > 0) {
+      // Find the player with the fewest current assassins
+      let bestTarget = null;
+      let minAssassinCount = Infinity;
+      
+      for (const player of differentClassPlayers) {
+        const assassinCount = await getAssassinCount(player.id);
+        if (assassinCount < minAssassinCount) {
+          minAssassinCount = assassinCount;
+          bestTarget = player;
+        }
+      }
+      
+      if (bestTarget) {
+        newTargetId = bestTarget.id;
+        assignmentReason = `Layer 4: Different class player with fewest assassins (${minAssassinCount})`;
+      }
+    }
+  }
+  
+  // LAYER 5: Ultimate fallback - any different class player (should never reach this)
   if (!newTargetId) {
-    assignmentReason = 'Layer 4: No suitable target available';
+    const differentClassPlayers = potentialTargets.filter(player => 
+      player.studentClass !== playerClass
+    );
+    
+    if (differentClassPlayers.length > 0) {
+      const randomIndex = Math.floor(Math.random() * differentClassPlayers.length);
+      newTargetId = differentClassPlayers[randomIndex].id;
+      assignmentReason = 'Layer 5: Random different class player (emergency fallback)';
+    }
   }
-
-  if (newTargetId) {
-    const newTarget = potentialTargets.find(p => p.id === newTargetId);
-    console.log(`Assignment for ${playerId}: ${assignmentReason} → ${newTarget?.fullName}`);
-  }
-
   return newTargetId;
 }
 

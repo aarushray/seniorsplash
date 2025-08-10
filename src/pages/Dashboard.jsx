@@ -505,47 +505,6 @@ useEffect(() => {
     }
   }
 
-/* Hide dashboard in portrait, show rotation prompt */
-@media screen and (max-width: 768px) and (orientation: portrait) {
-  .dashboard-grid {
-    display: none !important;
-  }
-  
-  header {
-    display: none !important;
-  }
-  
-  .rotation-prompt {
-    display: flex !important;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    text-align: center;
-    padding: 20px;
-    background: var(--primary-bg);
-  }
-}
-
-/* Show dashboard in landscape, hide rotation prompt */
-@media screen and (max-width: 768px) and (orientation: landscape) {
-  .rotation-prompt {
-    display: none !important;
-  }
-  
-  .dashboard-grid {
-    display: grid !important;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 16px;
-  }
-  
-  header {
-    display: block !important;
-    padding: 24px 16px !important;
-  }
-}
-
 /* Default state for larger screens */
 @media screen and (min-width: 769px) {
   .rotation-prompt {
@@ -587,37 +546,35 @@ useEffect(() => {
       
       <main className="dashboard-grid">
         {/* LEFT COLUMN */}
-        <div className="column-left flex flex-col gap-8">
+        <div className="column-left flex flex-col gap-6 px-4">
           
-          {/* Enhanced Target Panel */}
+          {/* Enhanced Target Panel - Optimized for 378x812 */}
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className={`glass-card ${target ? 'target-pulse' : ''}`}
+            className={`glass-card mx-2 ${target ? 'target-pulse' : ''}`}
           >
-            <h2 className="text-2xl font-bold mb-6 border-b border-border-color pb-3 font-heading flex items-center gap-3">
+            <h2 className="text-lg font-bold mb-3 border-b border-border-color pb-2 font-heading flex items-center gap-2">
               🎯 <span className="glow-text text-accent-red">TARGET FILE</span>
             </h2>
  
 
 {target ? (
-  <div className="flex items-center gap-8">
-
-
+  <div className="flex flex-col items-center gap-3">
     <motion.div
       whileHover={{ scale: 1.05 }}
-      className="relative"
+      className="relative flex-shrink-0"
     >
       {target.profilePhotoURL ? (
         <img 
           src={target.profilePhotoURL} 
           alt="Target Photo" 
-          className="w-32 h-32 rounded-full object-cover border-4 border-accent-red shadow-2xl"
+          className="w-16 h-16 rounded-full object-cover border-2 border-accent-red shadow-lg"
         />
       ) : (
-        <div className="w-32 h-32 rounded-full border-4 border-accent-red shadow-2xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-          <span className="text-4xl">
+        <div className="w-16 h-16 rounded-full border-2 border-accent-red shadow-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+          <span className="text-2xl">
             {target.avatarIndex !== undefined ? 
               avatars[target.avatarIndex]?.emoji || '🎯' : 
               '🎯'
@@ -625,43 +582,43 @@ useEffect(() => {
           </span>
         </div>
       )}
-      <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full border-4 border-white animate-pulse"></div>
+      <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
     </motion.div>
 
-    <div className="flex-1">
-      <p className="text-4xl font-bold text-accent-red mb-2 font-heading glow-text">
+    <div className="flex-1 text-center w-full">
+      <p className="text-xl font-bold text-accent-red mb-2 font-heading glow-text">
         {target.fullName}
       </p>
       
-      {/* Message moved right next to the name */}
+      {/* Message */}
       {target.messageToKiller && (
-        <div className="mb-4">
-          <div className="p-3 bg-yellow-600/10 border border-yellow-500/30 rounded-lg">
-            <p className="text-yellow-200 italic font-medium">
+        <div className="mb-3">
+          <div className="p-2 bg-yellow-600/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-xs text-yellow-200 italic font-medium">
               "{target.messageToKiller}"
             </p>
           </div>
         </div>
       )}
       
-      <div className="space-y-2 text-lg">
+      <div className="space-y-1 text-sm">
         <p className="text-text-secondary">
           <span className="text-accent-blue">Class:</span> M25{target.studentClass}
         </p>
         <p className="text-text-secondary">
           <span className="text-blue-400">Last seen:</span> 
-          <span className="text-blue-300 font-semibold ml-2">
+          <span className="text-blue-300 font-semibold ml-1">
             {target.lastKnownLocation || 'Location unknown'}
           </span>
           {target.locationUpdatedAt && (
-            <span className="text-xs text-slate-400 ml-2">
+            <span className="text-xs text-slate-400 ml-1">
               ({new Date(target.locationUpdatedAt.toDate()).toLocaleTimeString()})
             </span>
           )}
         </p>
         <p className="text-text-secondary">
           <span className="text-red-400">Kills:</span> 
-          <span className="text-red-400 font-bold ml-2">{target.kills || 0} 💀</span>
+          <span className="text-red-400 font-bold ml-1">{target.kills || 0} ��</span>
         </p>
       </div>
     </div>
@@ -670,70 +627,74 @@ useEffect(() => {
   <motion.div 
     animate={{ opacity: [0.5, 1, 0.5] }}
     transition={{ duration: 2, repeat: Infinity }}
-    className="text-center py-12"
+    className="text-center py-6"
   >
-    <div className="text-6xl mb-4">🎯</div>
-    <p className="text-2xl text-text-secondary font-heading">
+    <div className="text-3xl mb-3">🎯</div>
+    <p className="text-lg text-text-secondary font-heading">
       INCOMING TARGET ASSIGNMENT...
     </p>
-    <p className="text-text-secondary mt-2">Prepare for battle.</p>
+    <p className="text-sm text-text-secondary mt-1">Prepare for battle.</p>
   </motion.div>
 )}
-          </motion.div> 
+          </motion.div>
 
-          {/* Enhanced Stats Panel */}
+
+
+
+          {/* Enhanced Stats Panel - Optimized for 378x812 */}
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
             className="glass-card"
           >
-            <h2 className="text-2xl font-bold mb-6 border-b border-border-color pb-3 font-heading flex items-center gap-3">
-              📊 <span className="glow-text">COMBAT STATS</span>
+            <h2 className="text-lg font-bold mb-3 border-b border-border-color pb-2 font-heading flex items-center gap-2">
+              📊 <span className="glow-text text-accent-blue">COMBAT STATS</span>
             </h2>
-            <div className="grid grid-cols-3 gap-6">
+            <div className="flex flex-col gap-3">
               <motion.div 
-                whileHover={{ scale: 1.05 }}
-                className="bg-gradient-to-br from-purple-600 to-indigo-700 p-6 rounded-2xl text-center text-white shadow-2xl relative overflow-hidden"
+                whileHover={{ scale: 1.02 }}
+                className="bg-gradient-to-br from-purple-600 to-indigo-700 p-3 rounded-xl text-center text-white shadow-lg relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
                 <div className="relative z-10">
-                  <p className="text-3xl font-bold font-heading">💀</p>
-                  <p className="text-2xl font-bold mt-2">{playerData?.kills || 0}</p>
-                  <p className="text-sm opacity-90">Assassinations</p>
+                  <p className="text-2xl font-bold font-heading">💀</p>
+                  <p className="text-xl font-bold mt-1">{playerData?.kills || 0}</p>
+                  <p className="text-xs opacity-90">Assassinations</p>
                 </div>
               </motion.div>
               
               <motion.div 
-                whileHover={{ scale: 1.05 }}
-                className="bg-gradient-to-br from-green-600 to-emerald-700 p-6 rounded-2xl text-center text-white shadow-2xl relative overflow-hidden"
+                whileHover={{ scale: 1.02 }}
+                className="bg-gradient-to-br from-green-600 to-emerald-700 p-3 rounded-xl text-center text-white shadow-lg relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
                 <div className="relative z-10">
-                  <p className="text-3xl font-bold">{playerData?.isAlive ? '❤️' : '💔'}</p>
-                  <p className="text-2xl font-bold mt-2 text-green-300 animate-pulse">
+                  <p className="text-2xl font-bold">{playerData?.isAlive ? '❤️' : '💔'}</p>
+                  <p className="text-xl font-bold mt-1 text-green-300 animate-pulse">
                     {playerData?.isAlive ? 'Alive' : 'Dead'}
                   </p>
-                  <p className="text-sm opacity-90">
+                  <p className="text-xs opacity-90">
                     {playerData?.isAlive ? 'Stay vigilant!' : 'Game Over'}
                   </p>
                 </div>
               </motion.div>
               
               <motion.div 
-                whileHover={{ scale: 1.05 }}
-                className="bg-gradient-to-br from-orange-600 to-red-700 p-6 rounded-2xl text-center text-white shadow-2xl relative overflow-hidden"
+                whileHover={{ scale: 1.02 }}
+                className="bg-gradient-to-br from-orange-600 to-red-700 p-3 rounded-xl text-center text-white shadow-lg relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
                 <div className="relative z-10">
-                  <p className="text-3xl font-bold">⏱️</p>
-                  <p className="text-2xl font-bold mt-2">{survivalTime}</p>
-                  <p className="text-sm opacity-90">Survival Time</p>
+                  <p className="text-2xl font-bold">⏱️</p>
+                  <p className="text-xl font-bold mt-1">{survivalTime}</p>
+                  <p className="text-xs opacity-90">Survival Time</p>
                 </div>
               </motion.div>
             </div>
           </motion.div>
-          
+
+
           {/* Enhanced Achievements */}
           <motion.div 
             initial={{ opacity: 0, x: -50 }}
@@ -747,9 +708,9 @@ useEffect(() => {
           {/* Badge Notification */}
           {newlyEarnedBadge && (
             <motion.div 
-              initial={{ scale: 0, rotate: 180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              exit={{ scale: 0, rotate: -180 }}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0 }}
               className="fixed top-4 right-4 z-50 bg-gradient-to-r from-yellow-400 to-orange-500 text-white p-6 rounded-2xl shadow-2xl"
             >
               <div className="flex items-center space-x-4">
@@ -789,22 +750,21 @@ useEffect(() => {
    <div className="column-right flex flex-col gap-8">
     
     {/* --- MOVED AND MODIFIED BUTTON --- */}
-<motion.button
+    <motion.button
   whileHover={{ scale: 1.02 }}
   whileTap={{ scale: 0.98 }}
-  className="w-full text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-xl font-heading text-lg relative overflow-hidden"
-  onClick={() => navigate('/profile')}
+  className="w-full text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-2xl font-heading text-lg relative overflow-hidden"  onClick={() => navigate('/profile')}
   title="Customize Profile"
 >
   <span className="relative z-10">⚙️ CUSTOMIZE PROFILE</span>
-  <div className="absolute inset-0 bg-white/10 translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500"></div>
+              <div className="absolute inset-0 bg-white/10 translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500"></div>
 </motion.button>
 
    {/* Leaderboard Navigation Button */}
     <motion.button
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="w-full text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 shadow-xl font-heading text-lg relative overflow-hidden"
+      className="w-full text-white font-bold py-4 rounded-2xl transition-all duration-300 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 shadow-2xl font-heading text-lg relative overflow-hidden"
       onClick={() => navigate('/leaderboard')}
     >
       <span className="relative z-10">🏆 VIEW LEADERBOARDS</span>
@@ -815,22 +775,13 @@ useEffect(() => {
     <motion.button
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
-      className="w-full text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 shadow-xl font-heading text-lg relative overflow-hidden"
+      className="w-full text-white font-bold py-4 rounded-2xl transition-all duration-300 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 shadow-2xl font-heading text-lg relative overflow-hidden"
       onClick={() => navigate('/killfeed')}
     >
       <span className="relative z-10">🎯 WATCH KILL FEED</span>
       <div className="absolute inset-0 bg-white/10 translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500"></div>
     </motion.button>
 
-    {/* Enhanced Announcements */}
-    <motion.div 
-      initial={{ opacity: 0, x: 50 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 0.4 }}
-      className="glass-card announcements-container"
-    >
-      <Announcements />
-    </motion.div>
 
 {/* Enhance Location Update Box */}
 
@@ -1009,12 +960,6 @@ useEffect(() => {
 
   </div>
       </main>
-<div className="rotation-prompt">
-  <div className="text-6xl mb-4">📱</div>
-  <h2 className="text-2xl font-bold mb-4">Please Rotate Your Device</h2>
-  <p className="text-gray-400">This app works best in landscape mode</p>
-</div>
-
       {/* Class Domination Popup */}
       <ClassDominationPopup
         isVisible={showClassDomination}

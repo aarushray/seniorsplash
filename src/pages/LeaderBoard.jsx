@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,73 +14,75 @@ const LeaderBoard = () => {
 
 
   useEffect(() => {
-    fetchClassLeaderboard();
+    // Set up real-time listener for players collection
+    const playersQuery = query(
+      collection(firestore, 'players'),
+      where('isInGame', '==', true)
+    );
+    
+    const unsubscribe = onSnapshot(playersQuery, (snapshot) => {
+      try {
+        setLoading(false);
+        const allPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  
+        // Find global top killer
+        const topKiller = allPlayers.reduce((top, player) => 
+          (player.kills || 0) > (top?.kills || 0) ? player : top, null
+        );
+        setGlobalTopKiller(topKiller);
+  
+        const classSummary = {};
+  
+        allPlayers.forEach(player => {
+          const studentClass = player.studentClass || 'Unknown';
+  
+          if (!classSummary[studentClass]) {
+            classSummary[studentClass] = {
+              className: studentClass,
+              totalPlayers: 0,
+              alivePlayers: 0,
+              totalKills: 0,
+              topKiller: null,
+              topKillerKills: 0,
+              players: []
+            };
+          }
+  
+          classSummary[studentClass].totalPlayers++;
+          classSummary[studentClass].players.push(player);
+  
+          if (player.isAlive) {
+            classSummary[studentClass].alivePlayers++;
+          }
+  
+          const kills = player.kills || 0;
+          classSummary[studentClass].totalKills += kills;
+  
+          if (kills > classSummary[studentClass].topKillerKills) {
+            classSummary[studentClass].topKiller = player.fullName;
+            classSummary[studentClass].topKillerKills = kills;
+          }
+        });
+  
+        const sortedClasses = Object.values(classSummary).sort((a, b) => {
+          if (b.alivePlayers !== a.alivePlayers) return b.alivePlayers - a.alivePlayers;
+          if (b.totalKills !== a.totalKills) return b.totalKills - a.totalKills;
+          return b.totalPlayers - a.totalPlayers;
+        });
+  
+        setClassStats(sortedClasses);
+      } catch (err) {
+        console.error('Error processing real-time data:', err);
+        setError('Failed to process real-time data');
+      }
+    }, (error) => {
+      console.error('Error with real-time listener:', error);
+      setError('Failed to connect to real-time updates');
+    });
+  
+    // Cleanup function to unsubscribe when component unmounts
+    return () => unsubscribe();
   }, []);
-
-  const fetchClassLeaderboard = async () => {
-    try {
-      setLoading(true);
-
-      const playersQuery = query(
-        collection(firestore, 'players'),
-        where('isInGame', '==', true)
-      );
-      const playersSnap = await getDocs(playersQuery);
-      const allPlayers = playersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-      // Find global top killer
-      const topKiller = allPlayers.reduce((top, player) => 
-        (player.kills || 0) > (top?.kills || 0) ? player : top, null
-      );
-      setGlobalTopKiller(topKiller);
-
-      const classSummary = {};
-
-      allPlayers.forEach(player => {
-        const studentClass = player.studentClass || 'Unknown';
-
-        if (!classSummary[studentClass]) {
-          classSummary[studentClass] = {
-            className: studentClass,
-            totalPlayers: 0,
-            alivePlayers: 0,
-            totalKills: 0,
-            topKiller: null,
-            topKillerKills: 0,
-            players: []
-          };
-        }
-
-        classSummary[studentClass].totalPlayers++;
-        classSummary[studentClass].players.push(player);
-
-        if (player.isAlive) {
-          classSummary[studentClass].alivePlayers++;
-        }
-
-        const kills = player.kills || 0;
-        classSummary[studentClass].totalKills += kills;
-
-        if (kills > classSummary[studentClass].topKillerKills) {
-          classSummary[studentClass].topKiller = player.fullName;
-          classSummary[studentClass].topKillerKills = kills;
-        }
-      });
-
-      const sortedClasses = Object.values(classSummary).sort((a, b) => {
-        if (b.alivePlayers !== a.alivePlayers) return b.alivePlayers - a.alivePlayers;
-        if (b.totalKills !== a.totalKills) return b.totalKills - a.totalKills;
-        return b.totalPlayers - a.totalPlayers;
-      });
-
-      setClassStats(sortedClasses);
-    } catch (err) {
-      console.error('Error fetching class leaderboard:', err);
-      setError('Failed to load class statistics');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const getClassRankIcon = (index) => {
     switch (index) {

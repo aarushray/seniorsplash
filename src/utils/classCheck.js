@@ -33,7 +33,7 @@ export const checkClassDomination = async () => {
     let allSameClass = true;
     let winningClass = null;
     
-    if (players.length >= 2) {
+    if (players.length >= 1) {
       const firstClass = players[0].studentClass;
       winningClass = firstClass;
       

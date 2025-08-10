@@ -168,6 +168,20 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
       return;
     }
 
+    // Check if victim is even alive
+    const victimRef = doc(firestore, 'players', victimId);
+    const victimSnap = await getDoc(victimRef);
+    const victimData = victimSnap.data();
+    if (!victimData.isAlive) {
+      alert('Victim is not alive. Please check the name.');
+      setProcessingIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(proof.id);
+        return newSet;
+      });
+      return;
+    }
+
     // Check if victim is bounty
     const gameRef = doc(firestore, 'game', 'bounty');
     const gameSnap = await getDoc(gameRef);
@@ -185,7 +199,6 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
     }
 
     // Update victim - mark as eliminated and reset their streak
-    const victimRef = doc(firestore, 'players', victimId);
     batch.update(victimRef, {
       isAlive: false,
       targetId: null,
