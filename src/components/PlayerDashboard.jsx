@@ -56,24 +56,26 @@ const PlayerDashboard = ({ playerData }) => {
 
       {/* 2x5 Badge Grid with increased row gap and reduced bottom padding */}
       <div className="grid grid-cols-2 gap-x-6 gap-y-8 p-4 pb-2">
-          {badges.slice(0, 10).map((badge, index) => (
-            <motion.div
-              key={badge.id}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setSelectedBadge(badge)}
-              className="flex flex-col items-center cursor-pointer"
-              style={{
-                padding: '6px',
-                margin: '-6px'
+      {badges.slice(0, 10).map((badge, index) => {
+          const isEarned = earnedBadges.some(earned => earned.id === badge.id);
+          return (
+            <div 
+              key={badge.id} 
+              className="cursor-pointer relative z-20"
+              onClick={() => isEarned && handleBadgeClick(badge)}
+              style={{ 
+                // Ensure badges have enough space around them for hover effects
+                padding: '10px',
+                margin: '-10px', // Negative margin to maintain visual spacing
               }}
             >
-              <div className="text-4xl mb-2">{badge.icon}</div>
-              <p className="text-xs text-center text-text-secondary font-medium leading-tight">
-                {badge.title}
-              </p>
-            </motion.div>
-          ))}
+              <BadgeSlot 
+                badgeInfo={badge} 
+                isEarned={isEarned}
+              />
+            </div>
+          );
+        })}
         </div>
 
       {selectedBadge && (

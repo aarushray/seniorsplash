@@ -504,12 +504,6 @@ useEffect(() => {
       padding: 24px;
     }
   }
-
-/* Default state for larger screens */
-@media screen and (min-width: 769px) {
-  .rotation-prompt {
-    display: none !important;
-  }
 }` }</style>
 
 

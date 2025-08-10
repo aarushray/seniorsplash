@@ -20,12 +20,67 @@ const SubmitKillProof = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [alivePlayers, setAlivePlayers] = useState([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Fetch alive players on component mount
+  useEffect(() => {
+    const fetchAlivePlayers = async () => {
+      try {
+        const playersRef = collection(firestore, 'players');
+        const aliveQuery = query(playersRef, where('isAlive', '==', true));
+        const querySnapshot = await getDocs(aliveQuery);
+        
+        const players = [];
+        querySnapshot.forEach((doc) => {
+          const playerData = doc.data();
+          if (playerData.fullName && playerData.fullName.trim()) {
+            players.push({
+              id: doc.id,
+              fullName: playerData.fullName.trim()
+            });
+          }
+        });
+        
+        // Sort alphabetically by full name
+        players.sort((a, b) => a.fullName.localeCompare(b.fullName));
+        setAlivePlayers(players);
+      } catch (error) {
+        console.error('Error fetching alive players:', error);
+        setError('Failed to load player list. Please refresh the page.');
+      }
+    };
+
+    fetchAlivePlayers();
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.relative')) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const handleInputChange = (e) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value
     });
+  };
+
+  const handlePlayerSelect = (playerName) => {
+    setFormData({
+      ...formData,
+      targetName: playerName
+    });
+    setIsDropdownOpen(false);
   };
 
   const handleMediaChange = (e) => {
@@ -228,25 +283,67 @@ const SubmitKillProof = () => {
             </motion.div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Target Name */}
+              {/* Target Name - Now a Dropdown */}
               <motion.div 
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.3 }}
+                className="relative"
               >
                 <label className="block text-sm font-semibold text-gray-300 mb-2">
                   🎯 Target Name
                 </label>
-                <input
-                  type="text"
-                  name="targetName"
-                  id="targetName"
-                  value={formData.targetName}
-                  onChange={handleInputChange}
-                  placeholder="Enter the target's full name"
-                  className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    name="targetName"
+                    id="targetName"
+                    value={formData.targetName}
+                    onChange={handleInputChange}
+                    onFocus={() => setIsDropdownOpen(true)}
+                    placeholder="Select target from dropdown"
+                    className="w-full px-4 py-4 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200 cursor-pointer"
+                    required
+                    readOnly
+                  />
+                  <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                  
+                  {/* Dropdown Menu */}
+                  {isDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute z-50 w-full mt-2 bg-slate-800 border border-white/20 rounded-2xl shadow-2xl max-h-60 overflow-hidden"
+                    >
+                      <div className="max-h-60 overflow-y-auto" style={{
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#475569 #1e293b'
+                      }}>
+                        {alivePlayers.length > 0 ? (
+                          alivePlayers.map((player) => (
+                            <button
+                              key={player.id}
+                              type="button"
+                              onClick={() => handlePlayerSelect(player.fullName)}
+                              className="w-full px-4 py-3 text-left text-white hover:bg-white/10 transition-colors duration-200 border-b border-white/10 last:border-b-0"
+                            >
+                              {player.fullName}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-gray-400 text-center">
+                            No alive players found
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
               </motion.div>
 
               {/* Location */}
