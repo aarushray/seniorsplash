@@ -5,6 +5,7 @@ import { auth } from '../firebase/config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { firestore } from '../firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import '../Login.css';
 
 const Login = () => {
@@ -63,6 +64,23 @@ const Login = () => {
       }
     } catch (err) {
       setError('Invalid email or password. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Please enter your email above to reset your password.');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setError('Password reset email sent! Check your inbox.');
+    } catch (err) {
+      setError('Failed to send reset email. Please check your email address.');
     } finally {
       setIsLoading(false);
     }
@@ -210,7 +228,12 @@ const Login = () => {
                 </button>
               </p>
               
-              <button className="text-gray-500 hover:text-gray-400 text-sm transition-colors duration-200">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-gray-500 hover:text-gray-400 text-sm transition-colors duration-200"
+                disabled={isLoading}
+              >
                 Forgot password?
               </button>
             </motion.div>
