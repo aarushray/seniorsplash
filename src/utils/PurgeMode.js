@@ -1,6 +1,6 @@
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
-import { collection, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, query, where } from 'firebase/firestore';
 
 export const togglePurgeMode = async () => {
   try {
@@ -56,10 +56,20 @@ export const getPurgeModeStatus = async () => {
 
 export const clearAllTargets = async () => {
   try {
-    console.log('Clearing all player targets...');
     
-    const playersRef = collection(firestore, 'players');
-    const playersSnap = await getDocs(playersRef);
+    // Only get players who are actually in the game and alive
+    const playersQuery = query(
+      collection(firestore, 'players'),
+      where('isInGame', '==', true),
+      where('isAlive', '==', true)
+    );
+    
+    const playersSnap = await getDocs(playersQuery);
+    
+    if (playersSnap.size === 0) {
+      return;
+    }
+    
     
     const batch = writeBatch(firestore);
     
@@ -76,7 +86,6 @@ export const clearAllTargets = async () => {
     });
     
     await batch.commit();
-    console.log('All player targets cleared successfully');
     
   } catch (error) {
     console.error('Error clearing all targets:', error);

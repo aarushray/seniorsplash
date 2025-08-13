@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,30 +12,26 @@ const LeaderBoard = () => {
   const [globalTopKiller, setGlobalTopKiller] = useState(null);
   const navigate = useNavigate();
 
-
   useEffect(() => {
-    // Set up real-time listener for players collection
     const playersQuery = query(
       collection(firestore, 'players'),
       where('isInGame', '==', true)
     );
-    
+
     const unsubscribe = onSnapshot(playersQuery, (snapshot) => {
       try {
         setLoading(false);
         const allPlayers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  
-        // Find global top killer
-        const topKiller = allPlayers.reduce((top, player) => 
-          (player.kills || 0) > (top?.kills || 0) ? player : top, null
-        );
-        setGlobalTopKiller(topKiller);
-  
+
+        let topKiller = null;
         const classSummary = {};
-  
-        allPlayers.forEach(player => {
+
+        for (const player of allPlayers) {
+          if (!topKiller || (player.kills || 0) > (topKiller.kills || 0)) {
+            topKiller = player;
+          }
+
           const studentClass = player.studentClass || 'Unknown';
-  
           if (!classSummary[studentClass]) {
             classSummary[studentClass] = {
               className: studentClass,
@@ -47,29 +43,32 @@ const LeaderBoard = () => {
               players: []
             };
           }
-  
-          classSummary[studentClass].totalPlayers++;
-          classSummary[studentClass].players.push(player);
-  
-          if (player.isAlive) {
-            classSummary[studentClass].alivePlayers++;
-          }
-  
+
+          const cls = classSummary[studentClass];
+          cls.totalPlayers++;
+          cls.players.push(player);
+          if (player.isAlive) cls.alivePlayers++;
           const kills = player.kills || 0;
-          classSummary[studentClass].totalKills += kills;
-  
-          if (kills > classSummary[studentClass].topKillerKills) {
-            classSummary[studentClass].topKiller = player.fullName;
-            classSummary[studentClass].topKillerKills = kills;
+          cls.totalKills += kills;
+
+          if (kills > cls.topKillerKills) {
+            cls.topKiller = player.fullName;
+            cls.topKillerKills = kills;
           }
-        });
-  
+        }
+
+        // Sort player list inside each class once here
+        for (const cls of Object.values(classSummary)) {
+          cls.players.sort((a, b) => (b.kills || 0) - (a.kills || 0));
+        }
+
         const sortedClasses = Object.values(classSummary).sort((a, b) => {
           if (b.alivePlayers !== a.alivePlayers) return b.alivePlayers - a.alivePlayers;
           if (b.totalKills !== a.totalKills) return b.totalKills - a.totalKills;
           return b.totalPlayers - a.totalPlayers;
         });
-  
+
+        setGlobalTopKiller(topKiller);
         setClassStats(sortedClasses);
       } catch (err) {
         console.error('Error processing real-time data:', err);
@@ -79,36 +78,41 @@ const LeaderBoard = () => {
       console.error('Error with real-time listener:', error);
       setError('Failed to connect to real-time updates');
     });
-  
-    // Cleanup function to unsubscribe when component unmounts
+
     return () => unsubscribe();
   }, []);
 
-  const getClassRankIcon = (index) => {
+  const getClassRankIcon = useCallback((index) => {
     switch (index) {
       case 0: return '🚀';
       case 1: return '🛸';
       case 2: return '🤖';
       default: return '🎯';
     }
-  };
+  }, []);
 
-  const getClassColor = (index) => {
+  const getClassColor = useCallback((index) => {
     switch (index) {
       case 0: return 'from-cyan-400 to-blue-600';
       case 1: return 'from-violet-400 to-indigo-600';
       case 2: return 'from-pink-400 to-red-600';
       default: return 'from-gray-600 to-gray-800';
     }
-  };
+  }, []);
 
-  const toggleClassExpansion = (className) => {
-    setExpandedClass(expandedClass === className ? null : className);
-  };
+  const toggleClassExpansion = useCallback((className) => {
+    setExpandedClass(prev => (prev === className ? null : className));
+  }, []);
 
-  const hasGlobalTopKiller = (classData) => {
+  const hasGlobalTopKiller = useCallback((classData) => {
     return globalTopKiller && classData.players.some(player => player.id === globalTopKiller.id);
-  };
+  }, [globalTopKiller]);
+
+  const totalStats = useMemo(() => ({
+    totalPlayers: classStats.reduce((sum, cls) => sum + cls.totalPlayers, 0),
+    alivePlayers: classStats.reduce((sum, cls) => sum + cls.alivePlayers, 0),
+    totalKills: classStats.reduce((sum, cls) => sum + cls.totalKills, 0)
+  }), [classStats]);
 
   if (loading) {
     return (
@@ -343,10 +347,9 @@ const LeaderBoard = () => {
   );
 };
 
-// Enhanced Class MVP Card Component
-const ClassMVPCard = ({ classData }) => {
+// Memoized versions to prevent re-render spam
+const ClassMVPCard = React.memo(({ classData }) => {
   const hasMVP = classData.topKillerKills > 0;
-  
   return (
     <motion.div
       whileHover={{ scale: 1.05 }}
@@ -368,10 +371,9 @@ const ClassMVPCard = ({ classData }) => {
       )}
     </motion.div>
   );
-};
+});
 
-// Standard Stat Card Component
-const StatCard = ({ icon, value, label, color }) => (
+const StatCard = React.memo(({ icon, value, label, color }) => (
   <motion.div
     whileHover={{ scale: 1.05 }}
     className={`bg-gradient-to-br from-${color}-500/20 to-${color}-800/30 p-4 rounded-xl text-center border border-${color}-400/30 backdrop-blur-md transition-all duration-200`}
@@ -380,14 +382,13 @@ const StatCard = ({ icon, value, label, color }) => (
     <div className={`text-2xl font-bold text-${color}-300`}>{value}</div>
     <div className="text-sm text-gray-400">{label}</div>
   </motion.div>
-);
+));
 
-// Total Stats Component
-const TotalStat = ({ value, label, color }) => (
+const TotalStat = React.memo(({ value, label, color }) => (
   <div>
     <div className={`text-4xl font-bold text-${color}-400`}>{value}</div>
     <div className="text-sm text-gray-400">{label}</div>
   </div>
-);
+));
 
 export default LeaderBoard;

@@ -1,296 +1,134 @@
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
-import { query, doc, updateDoc, getDoc, writeBatch, getDocs, where} from 'firebase/firestore';
 import { badges } from './Badges';
 import { reassignTargets } from './reassignTargets';
-import { createKillAnnouncement } from '../components/Announcements';
 
-const checkBadgeRequirements = async (playerId) => {
-  try {
-    // Get the CURRENT player data from database (which should now be updated)
-    const playerRef = doc(firestore, 'players', playerId);
-    const playerSnap = await getDoc(playerRef);
-    
-    if (!playerSnap.exists()) return [];
-    
-    const playerData = playerSnap.data();
-    const currentBadges = playerData.badges || [];
-    const newBadges = [];
-    
-    // Check each badge requirement
-    for (const badge of badges) {
-      if (currentBadges.includes(badge.id)) continue; // Already has this badge
-      
-      let qualifies = false;
-      
-      switch (badge.trigger) {
-        case 'kill_count':
-          qualifies = (playerData.kills || 0) >= badge.requirement;
-          break;
-        case 'kill_streak': // This should use splashes for current streak
-          qualifies = (playerData.splashes || 0) >= badge.requirement;
-          break;
-        case 'bounty_kill':
-          qualifies = (playerData.bountyKills || 0) >= badge.requirement;
-          break;
-        case 'purge_kill':
-          qualifies = (playerData.purgeKills || 0) >= badge.requirement;
-          break;
-        case 'survival_time':
-          const joinDate = playerData.joinedAt?.toDate() || new Date();
-          const daysSurvived = Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
-          qualifies = daysSurvived >= badge.requirement;
-          break;
-        case 'game_winner':
-          // ✅ UPDATED: Check if player is alive AND only one class remains
-          qualifies = await checkAngelOfLightRequirements(playerId, playerData);
-          break;
-      }
-      
-      if (qualifies) {
-        newBadges.push(badge.id);
-      }
-    }
-    
-    return newBadges;
-  } catch (error) {
-    console.error('Error checking badge requirements:', error);
-    return [];
-  }
-};
-
-// ✅ NEW FUNCTION: Check if Angel of Light should be awarded
-const checkAngelOfLightRequirements = async (playerId, playerData) => {
-  try {
-    // Must be alive
-    if (!playerData.isAlive) {
-      return false;
-    }
-
-    // Get all alive players
-    const playersQuery = query(
-      collection(firestore, 'players'), 
-      where('isAlive', '==', true)
-    );
-    const playersSnapshot = await getDocs(playersQuery);
-    
-    const alivePlayersByClass = {};
-    let totalAlivePlayers = 0;
-    
-    // Group alive players by class
-    playersSnapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.isAlive && data.studentClass) {
-        const className = data.studentClass;
-        if (!alivePlayersByClass[className]) {
-          alivePlayersByClass[className] = [];
-        }
-        alivePlayersByClass[className].push({
-          id: doc.id,
-          ...data
-        });
-        totalAlivePlayers++;
-      }
-    });
-
-    // Count how many classes have alive players
-    const classesWithAlivePlayers = Object.keys(alivePlayersByClass).length;
-    
-    console.log(`Angel of Light check for ${playerData.fullName}:`);
-    console.log(`- Player is alive: ${playerData.isAlive}`);
-    console.log(`- Total alive players: ${totalAlivePlayers}`);
-    console.log(`- Classes with alive players: ${classesWithAlivePlayers}`);
-    console.log(`- Alive players by class:`, alivePlayersByClass);
-    
-    // Award Angel of Light if:
-    // 1. Player is alive
-    // 2. Only ONE class has alive players remaining
-    // 3. This player is in that class
-    if (classesWithAlivePlayers === 1) {
-      const remainingClass = Object.keys(alivePlayersByClass)[0];
-      const playerIsInRemainingClass = playerData.studentClass === remainingClass;
-      
-      console.log(`- Only class ${remainingClass} remains`);
-      console.log(`- Player ${playerData.fullName} is in class ${playerData.studentClass}`);
-      console.log(`- Player qualifies: ${playerIsInRemainingClass}`);
-      
-      return playerIsInRemainingClass;
-    }
-    
-    return false;
-  } catch (error) {
-    console.error('Error checking Angel of Light requirements:', error);
-    return false;
-  }
-};
-
+// Optimized handleVerify for ~150 players
 export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdminNotes) => {
   setProcessingIds(prev => new Set(prev).add(proof.id));
-  
+
   try {
     const batch = writeBatch(firestore);
+
+    // ✅ Fetch all players in one query
+    const playersSnapshot = await getDocs(collection(firestore, 'players'));
+    const players = playersSnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+
+    // Find killer & victim quickly
+    const killer = players.find(p => p.id === proof.submittedBy);
+    const victim = players.find(p => p.fullName?.toLowerCase() === proof.targetName.toLowerCase());
+
+    if (!killer) throw new Error("Killer not found.");
+    if (!victim) {
+      alert("Victim not found. Please check the name.");
+      return cleanupProcessing(setProcessingIds, proof.id);
+    }
+    if (!victim.isAlive) {
+      alert("Victim is not alive.");
+      return cleanupProcessing(setProcessingIds, proof.id);
+    }
+
+    // Get bounty data
+    const gameSnap = await getDoc(doc(firestore, 'game', 'bounty'));
+    const gameData = gameSnap.data() || {};
+
+    // Check if this is a bounty kill
+    const isBountyKill = gameData.targetName?.toLowerCase() === proof.targetName.toLowerCase();
+
+    // Update killer stats
+    const newKillCount = (killer.kills || 0) + 1;
+    const newSplashCount = (killer.splashes || 0) + 1;
+    const newBountyKills = isBountyKill ? (killer.bountyKills || 0) + 1 : (killer.bountyKills || 0);
     
-    // Get killer's current data
-    const killerRef = doc(firestore, 'players', proof.submittedBy);
-    const killerSnap = await getDoc(killerRef);
-    const killerData = killerSnap.data();
-    
-    // Calculate new values
-    const newKillCount = (killerData.kills || 0) + 1;
-    const newSplashCount = (killerData.splashes || 0) + 1;
-    
-    // Update killer - increment both kills and splashes
-    batch.update(killerRef, {
+    batch.update(doc(firestore, 'players', killer.id), {
       kills: newKillCount,
       splashes: newSplashCount,
+      bountyKills: newBountyKills,
       lastKillAt: new Date()
     });
 
-    // Find victim by name
-    const playersQuery = query(collection(firestore, 'players'));
-    const playersSnapshot = await getDocs(playersQuery);
-    let victimId = null;
-    
-    playersSnapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.fullName?.toLowerCase() === proof.targetName.toLowerCase()) {
-        victimId = doc.id;
-      }
-    });
-    
-    if (!victimId) {
-      alert('Victim not found in database. Please check the name.');
-      setProcessingIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(proof.id);
-        return newSet;
-      });
-      return;
-    }
-
-    // Check if victim is even alive
-    const victimRef = doc(firestore, 'players', victimId);
-    const victimSnap = await getDoc(victimRef);
-    const victimData = victimSnap.data();
-    if (!victimData.isAlive) {
-      alert('Victim is not alive. Please check the name.');
-      setProcessingIds(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(proof.id);
-        return newSet;
-      });
-      return;
-    }
-
-    // Check if victim is bounty
-    const gameRef = doc(firestore, 'game', 'bounty');
-    const gameSnap = await getDoc(gameRef);
-    const gameData = gameSnap.data();
-    const targetName = gameData?.targetName?.toLowerCase() || '';
-
-    // Check if victim is bounty
-    if ( targetName && proof.targetName.toLowerCase() === targetName ) {
-      console.log('Bounty kill detected');
-      const newBountyKills = (killerData.bountyKills || 0) + 1;
-      batch.update(killerRef, {
-        bountyKills: newBountyKills,
-        lastKillAt: new Date()
-      });
-    }
-
-    // Update victim - mark as eliminated and reset their streak
-    batch.update(victimRef, {
+    // Update victim
+    batch.update(doc(firestore, 'players', victim.id), {
       isAlive: false,
       targetId: null,
       targetAssignedAt: null,
-      eliminatedBy: proof.submittedBy,
+      eliminatedBy: killer.id,
       eliminatedAt: new Date(),
       deathLocation: proof.location
     });
-    
-    // COMMIT THE BATCH FIRST to update the database
+
+    // Commit kill/elimination changes
     await batch.commit();
-    
-    // ✅ IMPORTANT: Check badges for ALL alive players after elimination
-    // This ensures Angel of Light is awarded when a class elimination happens
-    const allPlayersQuery = query(
-      collection(firestore, 'players'), 
-      where('isAlive', '==', true)
-    );
-    const allPlayersSnapshot = await getDocs(allPlayersQuery);
-    
+
+    // ✅ Now check badges for all alive players using in-memory data
+    const alivePlayers = players.filter(p => p.isAlive && p.id !== victim.id);
+    const badgeUpdatesBatch = writeBatch(firestore);
     const allNewBadges = [];
-    
-    // Check badges for each alive player (including the killer)
-    for (const playerDoc of allPlayersSnapshot.docs) {
-      const playerId = playerDoc.id;
-      const newBadges = await checkBadgeRequirements(playerId);
+
+    // Check badges for each alive player
+    for (const player of alivePlayers) {
+      const newBadges = checkBadgeRequirementsInMemory(player, alivePlayers, isBountyKill);
       
       if (newBadges.length > 0) {
-        const playerData = playerDoc.data();
-        const currentBadges = playerData.badges || [];
-        
-        await updateDoc(doc(firestore, 'players', playerId), {
-          badges: [...currentBadges, ...newBadges],
+        badgeUpdatesBatch.update(doc(firestore, 'players', player.id), {
+          badges: [...(player.badges || []), ...newBadges],
           lastBadgeEarned: newBadges[newBadges.length - 1],
           lastBadgeTimestamp: new Date()
         });
         
-        // Track if this is the killer's badges for the announcement
-        if (playerId === proof.submittedBy) {
-          allNewBadges.push(...newBadges);
-        }
+        // Track all new badges for logging
+        allNewBadges.push(...newBadges);
         
-        console.log(`✅ Awarded badges to ${playerData.fullName}:`, newBadges);
+        // Log killer's badges specifically
+        if (player.id === killer.id) {
+          console.log(`Killer awarded badges:`, newBadges);
+        }
       }
     }
-    
-    await createKillAnnouncement(proof, newKillCount, allNewBadges);
-    
-    // Check if purge mode
-    const isPurgeMode = gameData?.purgeMode || false;
-    
-    // Assign new target if not purge mode
-    if (!isPurgeMode) {
-      await reassignTargets(proof.submittedBy, victimId);
+
+    // Execute badge updates if any
+    if (allNewBadges.length > 0) {
+      await badgeUpdatesBatch.commit();
+      console.log(`Updated badges for ${allNewBadges.length} total badges`);
     }
-    
-    // Update proof status in a separate operation
-    const proofRef = doc(firestore, 'killProofs', proof.id);
-    await updateDoc(proofRef, {
+
+    // Reassign target if not purge mode
+    if (!gameData.purgeMode) {
+      await reassignTargets(killer.id, victim.id);
+    }
+
+    // Update proof status
+    await updateDoc(doc(firestore, 'killProofs', proof.id), {
       status: 'verified',
       reviewedBy: 'admin',
       reviewedAt: new Date(),
-      adminNotes: adminNotes
+      adminNotes
     });
-    
-    // Add to activity log
+
+    // Log activity
     await addDoc(collection(firestore, 'activityLog'), {
       type: 'elimination',
-      killerId: proof.submittedBy,
+      killerId: killer.id,
       killerName: proof.submitterName,
-      victimId: victimId,
-      victimName: proof.targetName,
+      victimId: victim.id,
+      victimName: victim.fullName,
       location: proof.location,
       verifiedAt: new Date(),
       badgesAwarded: allNewBadges,
       killCount: newKillCount,
-      splashCount: newSplashCount
+      splashCount: newSplashCount,
+      isBountyKill: isBountyKill
     });
-    
+
     setAdminNotes('');
     const badgeText = allNewBadges.length > 0 ? ` (${allNewBadges.length} badge${allNewBadges.length > 1 ? 's' : ''} awarded!)` : '';
-    alert(`✅ Kill verified! ${proof.targetName} eliminated by ${proof.submitterName}${badgeText}`);
-    
+    alert(`✅ Kill verified! ${victim.fullName} eliminated by ${killer.fullName}${badgeText}`);
+
   } catch (error) {
     console.error('Error verifying kill:', error);
     alert('Error verifying kill. Please try again.');
   } finally {
-    setProcessingIds(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(proof.id);
-      return newSet;
-    });
+    cleanupProcessing(setProcessingIds, proof.id);
   }
 };
 
@@ -313,10 +151,67 @@ export const handleReject = async (proof, adminNotes, setProcessingIds, setAdmin
     console.error('Error rejecting proof:', error);
     alert('Error rejecting proof. Please try again.');
   } finally {
-    setProcessingIds(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(proof.id);
-      return newSet;
-    });
+    cleanupProcessing(setProcessingIds, proof.id);
   }
+};
+
+// Helper to stop processing spinner
+const cleanupProcessing = (setProcessingIds, proofId) => {
+  setProcessingIds(prev => {
+    const newSet = new Set(prev);
+    newSet.delete(proofId);
+    return newSet;
+  });
+};
+
+// ✅ OPTIMIZED: Check badge requirements using in-memory data
+const checkBadgeRequirementsInMemory = (player, alivePlayers, isBountyKill = false) => {
+  const newBadges = [];
+  const currentBadges = player.badges || [];
+
+  // Check each badge requirement
+  for (const badge of badges) {
+    // Skip if already earned
+    if (currentBadges.includes(badge.id)) continue;
+
+    let qualifies = false;
+
+    switch (badge.trigger) {
+      case 'kill_count':
+        qualifies = (player.kills || 0) >= badge.requirement;
+        break;
+        
+      case 'kill_streak':
+        // Use splashes for current streak (as per your existing logic)
+        qualifies = (player.splashes || 0) >= badge.requirement;
+        break;
+        
+      case 'bounty_kill':
+        qualifies = isBountyKill && (player.bountyKills || 0) >= badge.requirement;
+        break;
+        
+      case 'purge_kill':
+        qualifies = (player.purgeKills || 0) >= badge.requirement;
+        break;
+        
+      case 'survival_time':
+        const joinDate = player.joinedAt?.toDate ? player.joinedAt.toDate() : new Date(player.joinedAt || Date.now());
+        const daysSurvived = Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
+        qualifies = daysSurvived >= badge.requirement && player.isAlive;
+        break;
+        
+      case 'game_winner':
+        // Check if only one class remains and player is in that class
+        const classesAlive = new Set(alivePlayers.map(p => p.studentClass).filter(Boolean));
+        qualifies = player.isAlive && classesAlive.size === 1 && 
+                   alivePlayers.some(p => p.id === player.id && p.studentClass === Array.from(classesAlive)[0]);
+        break;
+    }
+
+    if (qualifies) {
+      newBadges.push(badge.id);
+    }
+  }
+
+  return newBadges;
 };

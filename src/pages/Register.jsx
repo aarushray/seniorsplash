@@ -4,7 +4,6 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, firestore } from '../firebase/config';
 import { motion } from 'framer-motion';
-import { runTransaction } from 'firebase/firestore';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -34,58 +33,54 @@ const handleSubmit = async (e) => {
       throw new Error('User creation failed - invalid user data');
     }
 
+    const playerRef = doc(firestore, 'players', user.uid);
     // Use a transaction or add retry logic for critical data
-    await runTransaction(firestore, async (transaction) => {
-      const playerRef = doc(firestore, 'players', user.uid);
-      transaction.set(playerRef, {
-        // Core identifiers
-        uid: user.uid,
-        email: user.email,
-
-        // Profile information (filled later in particulars)
-        fullName: '',
-      studentClass: '',
-      studentId: '', // Add this if missing
-      profilePhotoURL: '',
-      avatarIndex: 0,
-      messageToKiller: '',
-      
-      // Game state
-      isInGame: false,
-      isAlive: true,
-      targetId: null,
-      
-      // Location tracking
-      lastKnownLocation: '',
-      locationUpdatedAt: null,
-
-      removedFromGame: false,
-      removedAt: null,
-      
-      // Statistics
-      kills: 0,
-      splashes: 0,
-      purgeKills: 0,
-      bountyKills: 0,
-      
-      // Game timing
-      gameJoinedAt: null,
-      createdAt: new Date(),
-      
-      // Achievements
-      badges: [],
-      recentKills: [],
-      lastBadgeEarned: null,
-      lastBadgeTimestamp: null,
-      earnedBadges: [],
-      
-      // Admin flags
-      isAdmin: false,
-    });
-
-    console.log('Document created successfully for:', user.uid); // Debug log
-    navigate('/particulars');   
-  });
+// Replace the runTransaction block with:
+await setDoc(playerRef, {
+  // Core identifiers
+  uid: user.uid,
+  email: user.email,
+  
+  // Profile information (filled later in particulars)
+  fullName: '',
+  studentClass: '',
+  studentId: '',
+  profilePhotoURL: '',
+  avatarIndex: 0,
+  messageToKiller: '',
+  
+  // Game state
+  isInGame: false,
+  isAlive: true,
+  targetId: null,
+  
+  // Location tracking
+  lastKnownLocation: '',
+  locationUpdatedAt: null,
+  
+  removedFromGame: false,
+  removedAt: null,
+  
+  // Statistics
+  kills: 0,
+  splashes: 0,
+  purgeKills: 0,
+  bountyKills: 0,
+  
+  // Game timing
+  gameJoinedAt: null,
+  createdAt: new Date(),
+  
+  // Achievements
+  badges: [],
+  recentKills: [],
+  lastBadgeEarned: null,
+  lastBadgeTimestamp: null,
+  earnedBadges: [],
+  
+  // Admin flags
+  isAdmin: false,
+});
 
   } catch (err) {
     console.error('Registration error:', err);

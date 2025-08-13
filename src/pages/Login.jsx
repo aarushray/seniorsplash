@@ -5,7 +5,6 @@ import { auth } from '../firebase/config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { firestore } from '../firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
-import { getClassDominationState } from '../utils/classCheck';
 import '../Login.css';
 
 const Login = () => {
@@ -30,10 +29,10 @@ const Login = () => {
         return;
       }
       
-      const gameRef = doc(firestore, 'game', 'state');
-      const gameSnap = await getDoc(gameRef);
-      const playerRef = doc(firestore, 'players', user.uid);
-      const playerSnap = await getDoc(playerRef);
+      const [gameSnap, playerSnap] = await Promise.all([
+        getDoc(doc(firestore, 'game', 'state')),
+        getDoc(doc(firestore, 'players', user.uid))
+      ]);
       
       const gameStarted = gameSnap.exists() && gameSnap.data().gameStarted;
       const playerData = playerSnap.exists() ? playerSnap.data() : null;
@@ -53,19 +52,8 @@ const Login = () => {
                                  studentId.trim() === '';
 
       if (isProfileIncomplete) {
-        // Redirect to particulars to complete registration
         navigate("/particulars");
         return;
-      }
-
-      // Check for class domination state
-      const classDomination = await getClassDominationState();
-      if (classDomination) {
-        // Store class domination state in localStorage for dashboard access
-        localStorage.setItem('classDomination', JSON.stringify(classDomination));
-      } else {
-        // Clear any existing class domination state
-        localStorage.removeItem('classDomination');
       }
 
       if (isInGame) {

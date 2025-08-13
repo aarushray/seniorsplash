@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, where, writeBatch } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 
 function shuffleArray(array) {
@@ -13,7 +13,8 @@ export const reassignTargetsAfterPurge = async () => {
   
   const alivePlayersQuery = query(
     collection(firestore, 'players'),
-    where('isAlive', '==', true)
+    where('isAlive', '==', true),
+    where('isInGame', '==', true)
   );
   const alivePlayersSnap = await getDocs(alivePlayersQuery);
   let alivePlayers = [];
@@ -51,16 +52,17 @@ export const reassignTargetsAfterPurge = async () => {
   
   // If only one class remains, nobody gets targets (game should end)
   if (classes.length === 1) {
-    console.log('Only one class remaining - clearing all targets');
-    const batch = [];
+    const batch = writeBatch(firestore);
+    
     alivePlayers.forEach(player => {
       const playerRef = doc(firestore, 'players', player.id);
-      batch.push(updateDoc(playerRef, {
+      batch.update(playerRef, {  // ✅ Use batch.update
         targetId: null,
         targetAssignedAt: new Date()
-      }));
+      });
     });
-    await Promise.all(batch);
+    
+    await batch.commit();  // ✅ Use batch.commit
     return;
   }
 
@@ -138,25 +140,24 @@ export const reassignTargetsAfterPurge = async () => {
   }
 
   // Execute the assignments
-  const batch = [];
+  const batch = writeBatch(firestore);
   for (const assignment of assignments) {
     const playerRef = doc(firestore, 'players', assignment.assassin.id);
     
-    batch.push(updateDoc(playerRef, {
+  batch.update(playerRef, {  // ✅ CORRECT: batch.update
       targetId: assignment.target.id,
       targetAssignedAt: new Date()
-    }));
+    });
   }
 
   // Execute all updates
-  await Promise.all(batch);
-  
+  await batch.commit();  
   // Log assignment summary
-  console.log('Target reassignment completed:');
   classes.forEach(className => {
     const classSize = playersByClass[className].length;
     console.log(`${className}: ${classSize} players`);
   });
+  
   
   // Log targets with multiple assassins
   const multipleAssassins = Object.entries(targetAssignmentCount)
@@ -166,14 +167,6 @@ export const reassignTargetsAfterPurge = async () => {
       return { target: target?.fullName || targetId, count };
     });
     
-  if (multipleAssassins.length > 0) {
-    console.log('Targets with multiple assassins:');
-    multipleAssassins.forEach(({ target, count }) => {
-      console.log(`${target}: ${count} assassins`);
-    });
-  }
-  
-  console.log(`Total assignments made: ${assignments.length}`);
 };
 
 // Helper function to check if an assignment would create mutual targeting (A→B, B→A)

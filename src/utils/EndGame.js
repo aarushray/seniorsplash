@@ -1,4 +1,4 @@
-import { doc, updateDoc, getDocs, collection, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDocs, collection, deleteDoc, writeBatch } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import { badges } from './Badges';
 
@@ -19,9 +19,12 @@ export async function endGame() {
     });
 
     // Reset all players
+    const batch = writeBatch(firestore);
     const playersSnap = await getDocs(collection(firestore, 'players'));
-    for (const playerDoc of playersSnap.docs) {
-        await updateDoc(doc(firestore, 'players', playerDoc.id), {
+
+    playersSnap.docs.forEach((playerDoc) => {
+        const playerRef = doc(firestore, 'players', playerDoc.id);
+        batch.update(playerRef, {
             // Core game state
             isAlive: true,
             isInGame: false,
@@ -63,7 +66,9 @@ export async function endGame() {
         });
 
         // TODO: Send in-app or email notification to playerDoc.data().email
-    }
+    });
+
+    await batch.commit();
     
     await updateDoc(doc(firestore, 'game', 'state'), {
       gamePin: null

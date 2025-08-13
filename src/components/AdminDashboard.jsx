@@ -21,8 +21,6 @@ const AdminDashboard = () => {
   const [processingIds, setProcessingIds] = useState(new Set());
   const [adminNotes, setAdminNotes] = useState('');
   const [status, setStatus] = useState('');
-  const [announcement, setAnnouncement] = useState('');
-  const [announcementType, setAnnouncementType] = useState('admin');
   const [isPurgeMode, setIsPurgeMode] = useState(false);
   const [purgeStatus, setPurgeStatus] = useState('');
   const [searchPlayerName, setSearchPlayerName] = useState('');
@@ -253,24 +251,6 @@ useEffect(() => {
     }
   };
 
-  const handleSendAnnouncement = async () => {
-    if (!announcement) {
-      alert('Please enter an announcement message.');
-      return;
-    }
-    try {
-      await addDoc(collection(firestore, 'announcements'), {
-        message: announcement,
-        type: announcementType,
-        timestamp: Timestamp.now(),
-      });
-      setAnnouncement('');
-      alert('Announcement sent!');
-    } catch (err) {
-      console.error('Error sending announcement:', err);
-      alert('Failed to send announcement.');
-    }
-  };
 
   const handleFindAssassins = async () => {
     if (!searchPlayerName.trim()) {
@@ -494,27 +474,6 @@ useEffect(() => {
   </div>
 </div>
 
-        <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Send Announcement</h2>
-          <div className="space-y-4">
-            <textarea
-              value={announcement}
-              onChange={(e) => setAnnouncement(e.target.value)}
-              placeholder="Enter announcement message..."
-              className="w-full px-4 py-3 bg-white/50 border-0 rounded-2xl text-gray-800 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white/70 transition-all duration-200"
-              rows="3"
-            />
-            <select
-              value={announcementType}
-              onChange={(e) => setAnnouncementType(e.target.value)}
-              className="w-full px-4 py-3 bg-white/50 border-0 rounded-2xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white/70 transition-all duration-200"
-            >
-              <option value="admin">Admin Update</option>
-              <option value="event">Major Event</option>
-            </select>
-            <button onClick={handleSendAnnouncement} className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-2xl">Send Announcement</button>
-          </div>
-        </div>
       </div>
 
 
@@ -614,16 +573,11 @@ useEffect(() => {
   </div>
 
 
-      {/* Add this section after the existing Game Management and Announcements */}
+      {/* Add this section after the existing Game Management */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div>
           <h2 className="text-xl font-bold text-gray-800 mb-4">Game Management</h2>
           {/* ...existing game management buttons... */}
-        </div>
-
-        <div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Send Announcement</h2>
-          {/* ...existing announcement form... */}
         </div>
 
         {/* NEW: Assassin Finder Section */}

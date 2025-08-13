@@ -12,13 +12,42 @@ const Profile = () => {
   const [selectedAvatar, setSelectedAvatar] = useState(0);
   const [fullName, setFullName] = useState('');
   const [messageToKiller, setMessageToKiller] = useState('');
-  const [killerMessageWordCount, setKillerMessageWordCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [playerData, setPlayerData] = useState(null);
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
+  const [hasPhotoChanged, setHasPhotoChanged] = useState(false);
+  const [lastSaveAttempt, setLastSaveAttempt] = useState(0);
+  const [killerMessageWordCount, setKillerMessageWordCount] = useState(0);
+  const [isOffline, setIsOffline] = useState(false);
+
+  const getCachedPlayerData = () => {
+    const cached = localStorage.getItem(`playerData_${user?.uid}`);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      // Cache valid for 5 minutes
+      if (Date.now() - timestamp < 5 * 60 * 1000) {
+        return data;
+      }
+    }
+    return null;
+  };
+  
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
 
   // Avatar options - themed around Senior Splash
   const avatars = [
@@ -43,6 +72,23 @@ const Profile = () => {
   const loadPlayerData = useCallback(async () => {
     if (!user) return;
     
+    // Check cache first
+    const cachedData = getCachedPlayerData();
+    if (cachedData) {
+      setPlayerData(cachedData);
+      setSelectedAvatar(cachedData.avatarIndex || 0);
+      setFullName(cachedData.fullName || '');
+      setMessageToKiller(cachedData.messageToKiller || '');
+      setKillerMessageWordCount(cachedData.messageToKiller ? 
+        cachedData.messageToKiller.trim().split(/\s+/).filter(word => word.length > 0).length : 0);
+      if (cachedData.profilePhotoURL) {
+        setPhotoPreview(cachedData.profilePhotoURL);
+      }
+      setIsLoading(false);
+      return;
+    }
+    
+    // If no cache, fetch from database
     setIsLoading(true);
     try {
       const playerRef = doc(firestore, 'players', user.uid);
@@ -50,13 +96,19 @@ const Profile = () => {
       
       if (playerSnap.exists()) {
         const data = playerSnap.data();
+        // Cache the data
+        localStorage.setItem(`playerData_${user.uid}`, JSON.stringify({
+          data,
+          timestamp: Date.now()
+        }));
+        
+        // Set state
         setPlayerData(data);
         setSelectedAvatar(data.avatarIndex || 0);
         setFullName(data.fullName || '');
         setMessageToKiller(data.messageToKiller || '');
-        setKillerMessageWordCount(data.messageToKiller ? data.messageToKiller.split(' ').filter(word => word.length > 0).length : 0);
-        
-        // Set existing profile photo if available
+        setKillerMessageWordCount(data.messageToKiller ? 
+          data.messageToKiller.trim().split(/\s+/).filter(word => word.length > 0).length : 0);
         if (data.profilePhotoURL) {
           setPhotoPreview(data.profilePhotoURL);
         }
@@ -108,6 +160,7 @@ const Profile = () => {
       }
       
       setProfilePhoto(file);
+      setHasPhotoChanged(true); // Mark as changed
       
       // Create preview
       const reader = new FileReader();
@@ -115,13 +168,21 @@ const Profile = () => {
       reader.readAsDataURL(file);
     }
   };
-
+  
+  // Modify removePhoto
+  const removePhoto = () => {
+    setProfilePhoto(null);
+    setPhotoPreview('');
+    setHasPhotoChanged(true); // Mark as changed
+  };
+  
+  // Modify uploadProfilePhoto to only upload when changed
   const uploadProfilePhoto = async () => {
-    if (!profilePhoto || !user) return null;
+    if (!profilePhoto || !user || !hasPhotoChanged) return null;
     
     setIsUploadingPhoto(true);
     try {
-      // Delete old photo if exists
+      // Only delete old photo if we're uploading a new one
       if (playerData?.profilePhotoURL) {
         try {
           const oldPhotoRef = ref(storage, `profile-photos/${user.uid}`);
@@ -146,13 +207,15 @@ const Profile = () => {
     }
   };
 
-  const removePhoto = () => {
-    setProfilePhoto(null);
-    setPhotoPreview('');
-  };
-
   const handleSave = async () => {
     if (!user) return;
+    
+    // Rate limiting: prevent saves faster than 3 seconds
+    const now = Date.now();
+    if (now - lastSaveAttempt < 3000) {
+      alert('Please wait before saving again.');
+      return;
+    }
     
     // Validate full name
     if (!fullName.trim()) {
@@ -160,17 +223,19 @@ const Profile = () => {
       return;
     }
     
+    setLastSaveAttempt(now);
     setIsSaving(true);
+    
     try {
       let profilePhotoURL = playerData?.profilePhotoURL || '';
       
-      // Upload photo if a new one was selected
-      if (profilePhoto) {
+      // Only upload photo if it actually changed
+      if (hasPhotoChanged && profilePhoto) {
         const uploadedURL = await uploadProfilePhoto();
         if (uploadedURL) {
           profilePhotoURL = uploadedURL;
         }
-      } else if (!photoPreview) {
+      } else if (hasPhotoChanged && !photoPreview) {
         // User removed the photo
         if (playerData?.profilePhotoURL) {
           try {
@@ -191,6 +256,9 @@ const Profile = () => {
         profilePhotoURL: profilePhotoURL,
         profileUpdatedAt: new Date()
       });
+      
+      // Clear cache to force refresh
+      localStorage.removeItem(`playerData_${user.uid}`);
       
       // Show success and navigate back
       setTimeout(() => {
@@ -257,6 +325,14 @@ const Profile = () => {
           background: rgba(168, 85, 247, 0.1);
         }
       `}</style>
+
+      {isOffline && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-yellow-500/20 border border-yellow-500/50 rounded-2xl p-4 backdrop-blur-sm">
+            <p className="text-yellow-200 text-sm text-center">
+              📡 You're offline. Some features may not work.
+            </p>
+          </div>
+        )}
 
       <div className="min-h-screen flex items-center justify-center px-4 py-8">
         <motion.div 

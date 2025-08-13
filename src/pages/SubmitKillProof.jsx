@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { auth, firestore, storage } from '../firebase/config';
@@ -22,37 +22,72 @@ const SubmitKillProof = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [alivePlayers, setAlivePlayers] = useState([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [lastSubmissionAttempt, setLastSubmissionAttempt] = useState(0);
 
-  // Fetch alive players on component mount
-  useEffect(() => {
-    const fetchAlivePlayers = async () => {
-      try {
-        const playersRef = collection(firestore, 'players');
-        const aliveQuery = query(playersRef, where('isAlive', '==', true));
-        const querySnapshot = await getDocs(aliveQuery);
-        
-        const players = [];
-        querySnapshot.forEach((doc) => {
-          const playerData = doc.data();
-          if (playerData.fullName && playerData.fullName.trim()) {
-            players.push({
-              id: doc.id,
-              fullName: playerData.fullName.trim()
-            });
-          }
-        });
-        
-        // Sort alphabetically by full name
-        players.sort((a, b) => a.fullName.localeCompare(b.fullName));
-        setAlivePlayers(players);
-      } catch (error) {
-        console.error('Error fetching alive players:', error);
-        setError('Failed to load player list. Please refresh the page.');
+
+  const getCachedAlivePlayers = () => {
+    const cached = localStorage.getItem('alivePlayers');
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      // Cache valid for 5 minutes
+      if (Date.now() - timestamp < 5 * 60 * 1000) {
+        return data;
       }
-    };
+    }
+    return null;
+  };
 
-    fetchAlivePlayers();
+  const clearAlivePlayersCache = () => {
+    localStorage.removeItem('alivePlayers');
+  };
+
+
+  const fetchAlivePlayers = useCallback(async () => {
+    try {
+      // Check cache first
+      const cachedPlayers = getCachedAlivePlayers();
+      if (cachedPlayers) {
+        setAlivePlayers(cachedPlayers);
+        return;
+      }
+      
+      // If no cache, fetch from database
+      const playersRef = collection(firestore, 'players');
+      const aliveQuery = query(playersRef, where('isAlive', '==', true));
+      const querySnapshot = await getDocs(aliveQuery);
+      
+      const players = [];
+      querySnapshot.forEach((doc) => {
+        const playerData = doc.data();
+        if (playerData.fullName && playerData.fullName.trim()) {
+          players.push({
+            id: doc.id,
+            fullName: playerData.fullName.trim()
+          });
+        }
+      });
+      
+      // Sort alphabetically by full name
+      players.sort((a, b) => a.fullName.localeCompare(b.fullName));
+      
+      // Cache the data
+      localStorage.setItem('alivePlayers', JSON.stringify({
+        data: players,
+        timestamp: Date.now()
+      }));
+      
+      setAlivePlayers(players);
+    } catch (error) {
+      console.error('Error fetching alive players:', error);
+      setError('Failed to load player list. Please refresh the page.');
+    }
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchAlivePlayers();
+    }
+  }, [user, fetchAlivePlayers]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -83,153 +118,181 @@ const SubmitKillProof = () => {
     setIsDropdownOpen(false);
   };
 
-  const handleMediaChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        setError(`File too large. Max size: ${file.type.startsWith('video/') ? '50MB for videos' : '10MB for images'}`);
+// Modify handleMediaChange (around line 80)
+const handleMediaChange = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    // Validate file type
+    if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+      setError('Please select an image or video file.');
+      return;
+    }
+    
+    const maxSize = file.type.startsWith('video/') ? 50 * 1024 * 1024 : 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError(`File too large. Max size: ${file.type.startsWith('video/') ? '50MB for videos' : '10MB for images'}`);
+      return;
+    }
+
+    setMedia(file);
+    setMediaType(file.type.startsWith('video/') ? 'video' : 'image');
+    setError('');
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setMediaPreview(reader.result);
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+// Modify your handleSubmit function (around line 100)
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setError('');
+  setUploadProgress(0);
+
+  const now = Date.now();
+  if (now - lastSubmissionAttempt < 20000) {
+    setError('Please wait before submitting another proof.');
+    setIsLoading(false);
+    return;
+  }
+
+  setLastSubmissionAttempt(now);
+  setIsLoading(true);
+  setError('');
+  setUploadProgress(0);
+
+  try {
+    // Parallel database calls for better performance
+    const [gameSnap, submitterSnap] = await Promise.all([
+      getDoc(doc(firestore, 'game', 'state')),
+      getDoc(doc(firestore, 'players', user.uid))
+    ]);
+    
+    const gameData = gameSnap.data();
+    const isPurgeMode = gameData?.purgeMode || false;
+    
+    if (!submitterSnap.exists()) {
+      setError('Player data not found. Please contact an admin.');
+      setIsLoading(false);
+      return;
+    }
+    
+    const submitterData = submitterSnap.data();
+    const trimmedTargetName = formData.targetName.trim();
+
+    if (!isPurgeMode) {
+      // Non-purge mode: Check if the target matches the assigned target
+      if (!submitterData.targetId) {
+        setError('You do not have an assigned target. Please contact an admin.');
+        setIsLoading(false);
         return;
       }
 
-      setMedia(file);
-      setMediaType(file.type.startsWith('video/') ? 'video' : 'image');
-      setError('');
+      const targetRef = doc(firestore, 'players', submitterData.targetId);
+      const targetSnap = await getDoc(targetRef);
       
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMediaPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError('');
-    setUploadProgress(0);
-
-    try {
-      const gameRef = doc(firestore, 'game', 'state');
-      const gameSnap = await getDoc(gameRef);
-      const gameData = gameSnap.data();
-      const isPurgeMode = gameData?.purgeMode || false;
-
-      const submitterRef = doc(firestore, 'players', user.uid);
-      const submitterSnap = await getDoc(submitterRef);
-      
-      if (!submitterSnap.exists()) {
-        setError('Player data not found. Please contact an admin.');
+      if (!targetSnap.exists()) {
+        setError('Your assigned target was not found. Please contact an admin.');
         setIsLoading(false);
         return;
       }
       
-      const submitterData = submitterSnap.data();
-      const trimmedTargetName = formData.targetName.trim();
-
-      if (!isPurgeMode) {
-        // Non-purge mode: Check if the target matches the assigned target
-        if (!submitterData.targetId) {
-          setError('You do not have an assigned target. Please contact an admin.');
-          setIsLoading(false);
-          return;
-        }
-
-        const targetRef = doc(firestore, 'players', submitterData.targetId);
-        const targetSnap = await getDoc(targetRef);
-        
-        if (!targetSnap.exists()) {
-          setError('Your assigned target was not found. Please contact an admin.');
-          setIsLoading(false);
-          return;
-        }
-        
-        const targetData = targetSnap.data();
-        const assignedTargetName = targetData.fullName.trim();
-        
-        if (assignedTargetName.toLowerCase() !== trimmedTargetName.toLowerCase()) {
-          setError(`It is not Purge Mode. You may only assassinate your assigned target: ${assignedTargetName}`);
-          setIsLoading(false);
-          return;
-        }
-
-        if (!targetData.isAlive) {
-          setError(`${assignedTargetName} has already been eliminated. Please refresh your dashboard for a new target.`);
-          setIsLoading(false);
-          return;
-        }
-      } else {
-        // Purge mode: Find the player by name and check if they are alive
-        const playersRef = collection(firestore, 'players');
-        const playerQuery = query(playersRef, where('fullName', '==', trimmedTargetName));
-        const playerSnapshot = await getDocs(playerQuery);
-        
-        if (playerSnapshot.empty) {
-          setError(`No player found with name: ${trimmedTargetName}`);
-          setIsLoading(false);
-          return;
-        }
-        
-        if (playerSnapshot.size > 1) {
-          setError(`Multiple players found with name: ${trimmedTargetName}. Please contact an admin.`);
-          setIsLoading(false);
-          return;
-        }
-        
-        const targetDoc = playerSnapshot.docs[0];
-        const targetData = targetDoc.data();
-        
-        if (!targetData.isAlive) {
-          setError(`${trimmedTargetName} has already been eliminated.`);
-          setIsLoading(false);
-          return;
-        }
+      const targetData = targetSnap.data();
+      const assignedTargetName = targetData.fullName.trim();
+      
+      if (assignedTargetName.toLowerCase() !== trimmedTargetName.toLowerCase()) {
+        setError(`It is not Purge Mode. You may only assassinate your assigned target: ${assignedTargetName}`);
+        setIsLoading(false);
+        return;
       }
 
-      const timestamp = Date.now();
-      const fileExtension = media.name.split('.').pop();
-      const fileName = `${timestamp}_${user.uid}.${fileExtension}`;
-      const mediaRef = ref(storage, `kill-proofs/${fileName}`);
+      if (!targetData.isAlive) {
+        setError(`${assignedTargetName} has already been eliminated. Please refresh your dashboard for a new target.`);
+        setIsLoading(false);
+        return;
+      }
+    } else {
+      // Purge mode: Find the player by name and check if they are alive
+      const playersRef = collection(firestore, 'players');
+      const playerQuery = query(playersRef, where('fullName', '==', trimmedTargetName));
+      const playerSnapshot = await getDocs(playerQuery);
       
-      const uploadTask = uploadBytes(mediaRef, media);
-      uploadTask.then(() => setUploadProgress(100));
+      if (playerSnapshot.empty) {
+        setError(`No player found with name: ${trimmedTargetName}`);
+        setIsLoading(false);
+        return;
+      }
       
-      const uploadResult = await uploadTask;
-      const mediaUrl = await getDownloadURL(uploadResult.ref);
-
-      const proofData = {
-        submittedBy: user.uid,
-        submitterName: submitterData?.fullName?.trim() || 'Unknown',
-        submitterEmail: user.email,
-        targetName: trimmedTargetName,
-        location: formData.location.trim(),
-        description: formData.description.trim(),
-        mediaUrl: mediaUrl,
-        mediaType: mediaType,
-        fileName: fileName,
-        timestamp: new Date(),
-        status: 'pending',
-        adminNotes: '',
-        reviewedBy: null,
-        reviewedAt: null,
-      };
-
-      console.log('Kill proof document created successfully:', proofData);
-      await addDoc(collection(firestore, 'killProofs'), proofData);
-
-      setUploadProgress(100);
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
-
-    } catch (err) {
-      console.error('Submission error:', err);
-      setError('Failed to submit proof. Please try again.');
-    } finally {
-      setIsLoading(false);
+      if (playerSnapshot.size > 1) {
+        setError(`Multiple players found with name: ${trimmedTargetName}. Please contact an admin.`);
+        setIsLoading(false);
+        return;
+      }
+      
+      const targetDoc = playerSnapshot.docs[0];
+      const targetData = targetDoc.data();
+      
+      if (!targetData.isAlive) {
+        setError(`${trimmedTargetName} has already been eliminated.`);
+        setIsLoading(false);
+        return;
+      }
     }
-  };
+
+    // Media upload with better progress tracking
+    const timestamp = Date.now();
+    const fileExtension = media.name.split('.').pop();
+    const fileName = `${timestamp}_${user.uid}.${fileExtension}`;
+    const mediaRef = ref(storage, `kill-proofs/${fileName}`);
+    
+    // Upload media first
+    setUploadProgress(25);
+    const uploadResult = await uploadBytes(mediaRef, media);
+    setUploadProgress(75);
+    
+    const mediaUrl = await getDownloadURL(uploadResult.ref);
+    setUploadProgress(90);
+
+    const proofData = {
+      submittedBy: user.uid,
+      submitterName: submitterData?.fullName?.trim() || 'Unknown',
+      submitterEmail: user.email,
+      targetName: trimmedTargetName,
+      location: formData.location.trim(),
+      description: formData.description.trim(),
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
+      fileName: fileName,
+      timestamp: new Date(),
+      status: 'pending',
+      adminNotes: '',
+      reviewedBy: null,
+      reviewedAt: null,
+    };
+
+    clearAlivePlayersCache();
+    // Create kill proof document
+    await addDoc(collection(firestore, 'killProofs'), proofData);
+    setUploadProgress(100);
+
+    // Clear cache to force refresh of player list
+    localStorage.removeItem('alivePlayers');
+    
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 1500);
+
+  } catch (err) {
+    console.error('Submission error:', err);
+    setError('Failed to submit proof. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <>

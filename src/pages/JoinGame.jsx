@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { firestore } from '../firebase/config';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, onSnapshot, query } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { getGamePin } from '../utils/gamePin';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 
 const JoinGame = () => {
   const { currentUser } = useAuth();
@@ -12,89 +11,109 @@ const JoinGame = () => {
   const [error, setError] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [gameStatus, setGameStatus] = useState(null);
+  const [isGameStatusLoading, setIsGameStatusLoading] = useState(true);
+  const [joinAttempts, setJoinAttempts] = useState(0);
+  const [lastJoinAttempt, setLastJoinAttempt] = useState(0);
   const navigate = useNavigate();
 
-  // Check game status on component mount
+
   useEffect(() => {
-    const checkGameStatus = async () => {
-      try {
-        const gameRef = doc(firestore, 'game', 'state');
-        const gameDoc = await getDoc(gameRef);
-        
-        if (gameDoc.exists()) {
-          const gameData = gameDoc.data();
-          setGameStarted(gameData.gameStarted || false);
-        }
-      } catch (error) {
-        console.error('Error checking game status:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkGameStatus();
-  }, []);
-
-  const handleJoinGame = async () => {
-    if (!currentUser){
-        navigate('/login');
-        return;
-    }
-
-    // Double-check game status before allowing join
-    try {
-      const gameRef = doc(firestore, 'game', 'state');
-      const gameDoc = await getDoc(gameRef);
-      
-      if (gameDoc.exists()) {
-        const gameData = gameDoc.data();
-        if (gameData.gameStarted) {
-          setError('Game has already started. You cannot join now.');
-          return;
-        }
-      }
-    } catch (error) {
-      setError('Error checking game status. Please try again.');
-      return;
-    }
-
-    const gamePin = await getGamePin();
-
-    if (pin !== gamePin) {
-      setError('Incorrect PIN. Please try again.');
-      return;
-    }
-
-    setIsJoining(true);
-    setError('');
+    if (!currentUser) return;
+  
+    const gameRef = doc(firestore, 'game', 'state');
     
-    try {
-const playersRef = collection(firestore, 'players');
-const q = query(playersRef, where('uid', '==', currentUser.uid));
-const querySnapshot = await getDocs(q);
+    // Real-time listener for game status
+    const unsubscribe = onSnapshot(gameRef, (gameDoc) => {
+      if (gameDoc.exists()) {
+        const data = gameDoc.data();
+        setGameStatus(data);
+        setGameStarted(data.gameStarted || false);
+      } else {
+        setGameStatus(null);
+        setGameStarted(false);
+      }
+      setIsGameStatusLoading(false);
+    }, (error) => {
+      console.error('Error listening to game status:', error);
+      setIsGameStatusLoading(false);
+    });
+  
+    return () => unsubscribe();
+  }, [currentUser]);
 
-if (!querySnapshot.empty) {
-  const playerDoc = querySnapshot.docs[0];
-  await updateDoc(playerDoc.ref, {
-    isInGame: true,
-    gameJoinedAt: new Date()
-  });
-}
+// Replace the handleJoinGame function with this optimized version
+const handleJoinGame = async () => {
+  if (!currentUser) {
+    navigate('/login');
+    return;
+  }
+
+  // Use cached game status instead of fetching again
+  if (gameStatus?.gameStarted) {
+    setError('Game has already started. You cannot join now.');
+    return;
+  }
+
+  const gamePin = await getGamePin();
+  console.log('Game PIN:', gamePin);
+  console.log('Entered PIN:', pin);
+
+  if (pin !== gamePin) {
+    setError('Incorrect PIN. Please try again.');
+    return;
+  }
+
+  setIsJoining(true);
+  setError('');
+  
+  try {
+    // Direct document reference instead of query
+    const playerRef = doc(firestore, 'players', currentUser.uid);
+    
+    // Check if player exists and update
+    const playerDoc = await getDoc(playerRef);
+    if (playerDoc.exists()) {
+      await updateDoc(playerRef, {
+        isInGame: true,
+        gameJoinedAt: new Date()
+      });
       navigate('/dashboard');
-    } catch (err) {
-      setError('Failed to join game. Please try again.');
-    } finally {
-      setIsJoining(false);
+    } else {
+      setError('Player profile not found. Please contact support.');
     }
-  };
+  } catch (err) {
+    console.error('Error joining game:', err);
+    setError('Failed to join game. Please try again.');
+  } finally {
+    setIsJoining(false);
+  }
+};
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleJoinGame();
+
+  // Remove handleKeyPress, use form onSubmit instead
+
+  const throttledJoinGame = useCallback(async () => {
+    const now = Date.now();
+    const timeSinceLastAttempt = now - lastJoinAttempt;
+    
+    // Prevent more than 3 attempts per minute
+    if (joinAttempts >= 3 && timeSinceLastAttempt < 60000) {
+      setError('Too many join attempts. Please wait before trying again.');
+      return;
     }
-  };
-
+    
+    // Reset attempts after 1 minute
+    if (timeSinceLastAttempt > 60000) {
+      setJoinAttempts(0);
+    }
+    
+    setJoinAttempts(prev => prev + 1);
+    setLastJoinAttempt(now);
+    
+    await handleJoinGame();
+  }, [joinAttempts, lastJoinAttempt]);
+  
   return (
     <>
       <style>{`
@@ -201,56 +220,127 @@ if (!querySnapshot.empty) {
             </div>
 
             {/* PIN Input Section */}
-            <div className="space-y-6">
-              <div className="relative">
-                <label className="block text-slate-300 text-sm font-semibold mb-3 uppercase tracking-wider">
-                  🔐 Game PIN
-                </label>
-                <input
-                  type="text"
-                  placeholder="••••"
-                  className="pin-input w-full px-6 py-6 rounded-2xl text-center text-3xl font-bold tracking-[0.5em] font-mono focus:outline-none placeholder-slate-500"
-                  value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                  onKeyPress={handleKeyPress}
-                  maxLength="4"
-                  required
-                />
-                <div className="absolute inset-0 rounded-2xl pointer-events-none border-2 border-transparent bg-gradient-to-r from-blue-400/20 to-purple-400/20 opacity-0 transition-opacity duration-300 focus-within:opacity-100"></div>
+            {isGameStatusLoading ? (
+              <div className="text-center py-4">
+                <div className="animate-spin text-2xl mb-2">💧</div>
+                <p className="text-slate-400">Checking arena status...</p>
               </div>
+            ) : (
 
-              {/* Error Message */}
-              {error && (
-                <div className="bg-red-900/30 border border-red-500/50 rounded-2xl p-4 backdrop-blur-sm">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-red-400 text-xl">⚠️</span>
-                    <p className="text-red-300 font-medium">{error}</p>
-                  </div>
+// Replace your current form onSubmit with this:
+              <form className="space-y-6" onSubmit={async (e) => { 
+                e.preventDefault();
+                const sanPin = pin.replace(/\D/g, '').slice(0, 4);
+                setPin(sanPin); // This is still good for UI consistency
+                
+                // But use sanPin directly in the join logic instead of waiting for state to update
+                if (!currentUser) {
+                  navigate('/login');
+                  return;
+                }
+
+                if (gameStatus?.gameStarted) {
+                  setError('Game has already started. You cannot join now.');
+                  return;
+                }
+
+                const gamePin = await getGamePin();
+                console.log('Game PIN:', gamePin);
+                console.log('Entered PIN:', sanPin); // Use sanPin here instead of pin
+
+                if (sanPin !== gamePin) { // Use sanPin here instead of pin
+                  setError('Incorrect PIN. Please try again.');
+                  return;
+                }
+
+                // Apply throttling check
+                const now = Date.now();
+                const timeSinceLastAttempt = now - lastJoinAttempt;
+                
+                if (joinAttempts >= 3 && timeSinceLastAttempt < 60000) {
+                  setError('Too many join attempts. Please wait before trying again.');
+                  return;
+                }
+                
+                if (timeSinceLastAttempt > 60000) {
+                  setJoinAttempts(0);
+                }
+                
+                setJoinAttempts(prev => prev + 1);
+                setLastJoinAttempt(now);
+
+                setIsJoining(true);
+                setError('');
+                
+                try {
+                  const playerRef = doc(firestore, 'players', currentUser.uid);
+                  const playerDoc = await getDoc(playerRef);
+                  
+                  if (playerDoc.exists()) {
+                    await updateDoc(playerRef, {
+                      isInGame: true,
+                      gameJoinedAt: new Date()
+                    });
+                    navigate('/dashboard');
+                  } else {
+                    setError('Player profile not found. Please contact support.');
+                  }
+                } catch (err) {
+                  console.error('Error joining game:', err);
+                  setError('Failed to join game. Please try again.');
+                } finally {
+                  setIsJoining(false);
+                }
+              }}>
+                <div className="relative">
+                  <label className="block text-slate-300 text-sm font-semibold mb-3 uppercase tracking-wider">
+                    🔐 Game PIN
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="••••"
+                    className="pin-input w-full px-6 py-6 rounded-2xl text-center text-3xl font-bold tracking-[0.5em] font-mono focus:outline-none placeholder-slate-500"
+                    value={pin}
+                    onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    maxLength="4"
+                    required
+                  />
+                  <div className="absolute inset-0 rounded-2xl pointer-events-none border-2 border-transparent bg-gradient-to-r from-blue-400/20 to-purple-400/20 opacity-0 transition-opacity duration-300 focus-within:opacity-100"></div>
                 </div>
-              )}
 
-              {/* Join Button */}
-              <button
-                onClick={handleJoinGame}
-                disabled={isJoining || pin.length !== 4}
-                className="join-button w-full py-5 text-white font-bold rounded-2xl text-lg font-heading tracking-wide relative overflow-hidden"
-              >
-                <span className="relative z-10 flex items-center justify-center space-x-3">
-                  {isJoining ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>JOINING BATTLE...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>🚀</span>
-                      <span>JOIN THE SPLASH</span>
-                    </>
-                  )}
-                </span>
-                <div className="absolute inset-0 bg-white/10 translate-x-[-100%] transition-transform duration-500 hover:translate-x-[100%]"></div>
-              </button>
-            </div>
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-900/30 border border-red-500/50 rounded-2xl p-4 backdrop-blur-sm">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-red-400 text-xl">⚠️</span>
+                      <p className="text-red-300 font-medium">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Join Button */}
+                <button
+                  type="submit"
+                  disabled={isJoining || pin.length !== 4}
+                  className="join-button w-full py-5 text-white font-bold rounded-2xl text-lg font-heading tracking-wide relative overflow-hidden"
+                >
+                  <span className="relative z-10 flex items-center justify-center space-x-3">
+                    {isJoining ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <span>JOINING BATTLE...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🚀</span>
+                        <span>JOIN THE SPLASH</span>
+                      </>
+                    )}
+                  </span>
+                  <div className="absolute inset-0 bg-white/10 translate-x-[-100%] transition-transform duration-500 hover:translate-x-[100%]"></div>
+                </button>
+              </form>
+            )}
 
             {/* Footer */}
             <div className="mt-8 text-center">
@@ -267,8 +357,12 @@ if (!querySnapshot.empty) {
 
             {/* Status Indicator */}
             <div className="mt-6 flex items-center justify-center space-x-2">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-slate-400 text-xs font-mono">ARENA_STATUS: ACTIVE</span>
+              <div className={`w-2 h-2 rounded-full animate-pulse ${
+                gameStarted ? 'bg-red-400' : 'bg-green-400'
+              }`}></div>
+              <span className="text-slate-400 text-xs font-mono">
+                ARENA_STATUS: {gameStarted ? 'IN_PROGRESS' : 'ACTIVE'}
+              </span>
             </div>
           </div>
         </div>

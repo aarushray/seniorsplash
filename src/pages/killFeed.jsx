@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, limit } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,49 +12,48 @@ const KillFeed = () => {
   useEffect(() => {
     const fetchEliminations = async () => {
       try {
-        setLoading(true);
-        setError(null);
-
+        // ✅ DEFINE the query first
         const q = query(
           collection(firestore, 'killProofs'),
           where('status', '==', 'verified'),
           orderBy('timestamp', 'desc')
         );
-
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-          const verificationsData = [];
-          querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            verificationsData.push({
-              id: doc.id,
-              killer: data.submitterName,
-              victim: data.targetName,
-              videoUrl: data.mediaUrl,
-              timestamp: data.timestamp,
-              thumbnailUrl: data.mediaUrl,
-              location: data.location,
-              description: data.description,
-              mediaType: data.mediaType
-            });
+  
+        const querySnapshot = await getDocs(q);
+        const verificationsData = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          verificationsData.push({
+            id: doc.id,
+            killer: data.submitterName,
+            victim: data.targetName,
+            videoUrl: data.mediaUrl,
+            timestamp: data.timestamp,
+            thumbnailUrl: data.mediaUrl,
+            location: data.location,
+            description: data.description,
+            mediaType: data.mediaType
           });
-          
-          setEliminations(verificationsData);
-          setLoading(false);
-        }, (error) => {
-          console.error('Error fetching verified eliminations:', error);
-          setError(error.message);
-          setLoading(false);
         });
-
-        return () => unsubscribe();
+        
+        setEliminations(verificationsData);
+        setLoading(false);
+        
       } catch (error) {
-        console.error('Error setting up eliminations listener:', error);
-        setError(error.message);
+        console.error('Error fetching eliminations:', error);
+        setError('Failed to load eliminations');
         setLoading(false);
       }
     };
-
+  
+    // Initial fetch
     fetchEliminations();
+  
+    // ✅ Poll every 30 seconds
+    const interval = setInterval(fetchEliminations, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const formatTime = (timestamp) => {

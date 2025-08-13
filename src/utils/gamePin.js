@@ -29,10 +29,11 @@ export const updateGamePin = async (newPin) => {
  */
 export const getGamePin = async () => {
   try {
-    const gameStateRef = doc(firestore, GAME_COLLECTION, GAME_STATE_DOC);
+    const gameStateRef = doc(firestore, "game", "state");
     const docSnap = await getDoc(gameStateRef);
     
     if (docSnap.exists()) {
+      console.log('Game state document found:', docSnap.data());
       return docSnap.data().gamePin || null;
     } else {
       console.log('No game state document found');

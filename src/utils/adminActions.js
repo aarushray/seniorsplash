@@ -1,82 +1,58 @@
 import { collection, addDoc, Timestamp, setDoc, doc, updateDoc, getDoc, writeBatch, getDocs, query, where } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 import { badges } from './Badges';
-import { reassignTargets } from './reassignTargets';
-import { createKillAnnouncement } from '../components/Announcements';
 
 export const removePlayerFromGame = async (fullName) => {
   try {
-    // Find player by fullName
-    const trimmedFullName = fullName.trim();
-    
-    // Get all players and filter by trimmed fullName
-    const playersRef = collection(firestore, 'players');
-    const querySnapshot = await getDocs(playersRef);
-    
-    // Filter players by trimmed fullName
-    const matchingPlayers = querySnapshot.docs.filter(doc => {
-      const playerData = doc.data();
-      return playerData.fullName?.trim() === trimmedFullName;
-    });
-    
-    if (matchingPlayers.length === 0) {
-      throw new Error(`No player found with name: ${trimmedFullName}`);
+    // ✅ Fetch all players in one go (same efficient pattern)
+    const playersSnap = await getDocs(
+      query(
+        collection(firestore, 'players'),
+        where('isInGame', '==', true)
+      )
+    );
+
+    const allPlayers = playersSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // ✅ Build efficient maps in one pass
+    const nameToIdMap = Object.fromEntries(allPlayers.map(p => [p.fullName?.toLowerCase(), p.id]));
+
+    // Find player by name (case-insensitive)
+    const playerId = nameToIdMap[fullName.toLowerCase()];
+    if (!playerId) {
+      throw new Error(`Player "${fullName}" not found in game`);
     }
-    
-    if (matchingPlayers.length > 1) {
-      throw new Error(`Multiple players found with name: ${trimmedFullName}`);
+
+    const player = allPlayers.find(p => p.id === playerId);
+    if (!player.isInGame) {
+      throw new Error(`Player "${fullName}" is not currently in a game`);
     }
-    
-    const playerDoc = matchingPlayers[0];
-    const playerData = playerDoc.data();
-    
-    
-    // Update player status
-    await updateDoc(playerDoc.ref, {
+
+    // ✅ Simple removal - no target reassignment needed
+    await updateDoc(doc(firestore, 'players', playerId), {
       isInGame: false,
-      isAlive: false,
       targetId: null,
-      removedFromGame: true,
+      isAlive: false,
       removedAt: new Date(),
-      lastKnownLocation: 'Removed from game'
+      removedBy: 'admin'
     });
-    
-    // If player had a target, we need to reassign it
-    if (playerData.targetId) {
-      // Find who was targeting the removed player
-      const assassinQuery = query(playersRef, where('targetId', '==', playerDoc.id));
-      const assassinSnapshot = await getDocs(assassinQuery);
-      
-      // Reassign the removed player's target to their assassin(s)
-      for (const assassinDoc of assassinSnapshot.docs) {
-        await updateDoc(assassinDoc.ref, {
-          targetId: playerData.targetId,
-          targetAssignedAt: new Date()
-        });
-      }
-    }
-    
-    return {
-      success: true,
-      playerName: playerData.fullName,
-      playerClass: playerData.studentClass
+
+    const results = {
+      removedPlayer: player.fullName,
+      playerId: playerId,
+      message: `Player "${player.fullName}" successfully removed from game`
     };
-    
+
+    console.log('Player removal completed:', results);
+    return results;
+
   } catch (error) {
-    console.error('Error removing player:', error);
+    console.error('Error removing player from game:', error);
     throw error;
   }
-};
-
-
-export const sendAnnouncement = async (message, type = 'admin') => {
-  if (!message.trim()) throw new Error('Announcement message is required');
-  
-  await addDoc(collection(firestore, 'announcements'), {
-    message: message.trim(),
-    type,
-    timestamp: Timestamp.now(),
-  });
 };
 
 export const setBounty = async (targetName, prize, description = '') => {

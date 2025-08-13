@@ -13,37 +13,7 @@ const Particulars = () => {
   const [studentId, setStudentId] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-
-  // Load existing user data when component mounts
-  React.useEffect(() => {
-    const loadUserData = async () => {
-      if (!currentUser) {
-        navigate('/login');
-        return;
-      }
-
-      try {
-        const playerRef = doc(firestore, 'players', currentUser.uid);
-        const playerSnap = await getDoc(playerRef);
-        
-        if (playerSnap.exists()) {
-          const playerData = playerSnap.data();
-          // Pre-fill form with existing data (if any)
-          setFullName(playerData.fullName || '');
-          setStudentClass(playerData.studentClass || '');
-          setStudentId(playerData.studentId || '');
-        }
-      } catch (err) {
-        console.error('Error loading user data:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadUserData();
-  }, [currentUser, navigate]);
 
 const handleSubmit = async (e) => {
   e.preventDefault();
@@ -51,8 +21,6 @@ const handleSubmit = async (e) => {
     navigate('/login');
     return;
   }
-
-  console.log('Current user UID:', currentUser.uid); // Add this debug log
 
   setIsSubmitting(true);
   setError('');
@@ -82,9 +50,13 @@ const handleSubmit = async (e) => {
       recentKills: [],
       bountyKills: 0,
       
+      
       // Proof and verification
       proofs: [],
       pendingProofs: [],
+
+      removedFromGame: false,
+      removedAt: null,
       
       // Timing and assignments
       gameJoinedAt: null,
@@ -110,6 +82,8 @@ const handleSubmit = async (e) => {
       messageToKiller: null
     });
 
+    alert("Successful registeration! Let's join a game now!");
+
     navigate('/joingame');
   } catch (err) {
     setError('Failed to save your information. Please try again.');
@@ -117,14 +91,6 @@ const handleSubmit = async (e) => {
     setIsSubmitting(false);
   }
 };
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
-      </div>
-    );
-  }
 
   return (
     <>

@@ -1,4 +1,4 @@
-import { collection, getDoc, getDocs, doc, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { firestore } from '../firebase/config';
 
 /**
@@ -8,19 +8,26 @@ import { firestore } from '../firebase/config';
  */
 export const getAssassinsForPlayer = async (targetPlayerName) => {
   try {
-    // First, find the target player by name
-    const playersQuery = query(collection(firestore, 'players'));
-    const playersSnapshot = await getDocs(playersQuery);
-    
-    let targetPlayer = null;
-    playersSnapshot.forEach((doc) => {
-      const data = doc.data();
-      if (data.fullName?.toLowerCase() === targetPlayerName.toLowerCase()) {
-        targetPlayer = { id: doc.id, ...data };
-      }
-    });
-    
-    if (!targetPlayer) {
+    // ✅ Fetch all players in one go (same efficient pattern)
+    const playersSnap = await getDocs(
+      query(
+        collection(firestore, 'players'),
+        where('isInGame', '==', true)
+      )
+    );
+
+    const allPlayers = playersSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // ✅ Build efficient maps in one pass
+    const nameToIdMap = Object.fromEntries(allPlayers.map(p => [p.fullName?.toLowerCase(), p.id]));
+    const playerMap = Object.fromEntries(allPlayers.map(p => [p.id, p]));
+
+    // Find target player by name (case-insensitive)
+    const targetPlayerId = nameToIdMap[targetPlayerName.toLowerCase()];
+    if (!targetPlayerId) {
       return {
         success: false,
         message: `Player "${targetPlayerName}" not found`,
@@ -28,45 +35,38 @@ export const getAssassinsForPlayer = async (targetPlayerName) => {
         assassins: []
       };
     }
-    
-    // Find all players targeting this player
-    const assassinQuery = query(
-      collection(firestore, 'players'),
-      where('targetId', '==', targetPlayer.id),
-      where('isAlive', '==', true)
-    );
-    
-    const assassinSnapshot = await getDocs(assassinQuery);
-    const assassins = [];
-    
-    assassinSnapshot.forEach((doc) => {
-      const assassinData = doc.data();
-      
-      assassins.push({
-        id: doc.id,
-        name: assassinData.fullName,
-        class: assassinData.studentClass || 'Unknown', // Use studentClass field
-        kills: assassinData.kills || 0,
-        splashes: assassinData.splashes || 0,
-        email: assassinData.email,
-        targetAssignedAt: assassinData.targetAssignedAt
-      });
-    });
-    
+
+    const targetPlayer = playerMap[targetPlayerId];
+
+    // ✅ Find assassins efficiently using the map
+    const assassins = allPlayers.filter(p => 
+      p.targetId === targetPlayerId && 
+      p.isAlive && 
+      p.isInGame
+    ).map(assassin => ({
+      id: assassin.id,
+      name: assassin.fullName,
+      class: assassin.studentClass || 'Unknown',
+      kills: assassin.kills || 0,
+      splashes: assassin.splashes || 0,
+      email: assassin.email,
+      targetAssignedAt: assassin.targetAssignedAt
+    }));
+
     return {
       success: true,
       message: `Found ${assassins.length} assassin(s) targeting ${targetPlayer.fullName}`,
       target: {
         id: targetPlayer.id,
         name: targetPlayer.fullName,
-        class: targetPlayer.studentClass || 'Unknown', // Use studentClass field
+        class: targetPlayer.studentClass || 'Unknown',
         isAlive: targetPlayer.isAlive,
         kills: targetPlayer.kills || 0,
         splashes: targetPlayer.splashes || 0
       },
       assassins: assassins
     };
-    
+
   } catch (error) {
     console.error('Error finding assassins:', error);
     return {
@@ -84,27 +84,39 @@ export const getAssassinsForPlayer = async (targetPlayerName) => {
  */
 export const getAllTargetingRelationships = async () => {
   try {
-    const playersQuery = query(
-      collection(firestore, 'players'),
-      where('isAlive', '==', true)
+    // ✅ Single query for all players
+    const playersSnap = await getDocs(
+      query(
+        collection(firestore, 'players'),
+        where('isInGame', '==', true)
+      )
     );
-    
-    const playersSnapshot = await getDocs(playersQuery);
-    const relationships = [];
-    
-    playersSnapshot.forEach((doc) => {
-      const playerData = doc.data();
-      if (playerData.targetId) {
-        relationships.push({
-          assassinId: doc.id,
-          assassinName: playerData.fullName,
-          assassinClass: playerData.studentClass || 'Unknown', // Use studentClass field
-          targetId: playerData.targetId,
-          targetAssignedAt: playerData.targetAssignedAt
+
+    const allPlayers = playersSnap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // ✅ Build targeting map efficiently
+    const targetMap = {};
+    allPlayers.forEach(player => {
+      if (player.targetId) {
+        if (!targetMap[player.targetId]) {
+          targetMap[player.targetId] = [];
+        }
+        targetMap[player.targetId].push({
+          assassinId: player.id,
+          assassinName: player.fullName,
+          assassinClass: player.studentClass || 'Unknown',
+          targetId: player.targetId,
+          targetAssignedAt: player.targetAssignedAt
         });
       }
     });
-    
+
+    // ✅ Convert to flat array efficiently
+    const relationships = Object.values(targetMap).flat();
+
     return relationships;
   } catch (error) {
     console.error('Error getting targeting relationships:', error);
