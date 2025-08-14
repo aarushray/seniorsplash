@@ -30,21 +30,28 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
 
     // Get bounty data
     const gameSnap = await getDoc(doc(firestore, 'game', 'bounty'));
+    const gameStateSnap = await getDoc(doc(firestore, 'game', 'state'));
     const gameData = gameSnap.data() || {};
 
     // Check if this is a bounty kill
     const isBountyKill = gameData.targetName?.toLowerCase() === proof.targetName.toLowerCase();
+    const isPurgeMode = gameStateSnap.data()?.purgeMode;
 
     // Update killer stats
     const newKillCount = (killer.kills || 0) + 1;
     const newSplashCount = (killer.splashes || 0) + 1;
     const newBountyKills = isBountyKill ? (killer.bountyKills || 0) + 1 : (killer.bountyKills || 0);
-    
+    const newPurgeKills = isPurgeMode ? (killer.purgeKills || 0) + 1 : (killer.purgeKills || 0);
+
+    console.log("bounty kill", isBountyKill, "purge mode", isPurgeMode);
+    console.log(newBountyKills, "and", newPurgeKills);
+
     batch.update(doc(firestore, 'players', killer.id), {
       kills: newKillCount,
       splashes: newSplashCount,
       bountyKills: newBountyKills,
-      lastKillAt: new Date()
+      lastKillAt: new Date(),
+      purgeKills: newPurgeKills
     });
 
     // Update victim
@@ -60,6 +67,13 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
     // Commit kill/elimination changes
     await batch.commit();
 
+    if (killer) {
+      killer.kills = newKillCount;
+      killer.splashes = newSplashCount;
+      killer.bountyKills = newBountyKills;
+      killer.purgeKills = newPurgeKills;
+    }
+
     // ✅ Now check badges for all alive players using in-memory data
     const alivePlayers = players.filter(p => p.isAlive && p.id !== victim.id);
     const badgeUpdatesBatch = writeBatch(firestore);
@@ -67,7 +81,7 @@ export const handleVerify = async (proof, adminNotes, setProcessingIds, setAdmin
 
     // Check badges for each alive player
     for (const player of alivePlayers) {
-      const newBadges = checkBadgeRequirementsInMemory(player, alivePlayers, isBountyKill);
+      const newBadges = checkBadgeRequirementsInMemory(player, alivePlayers, isBountyKill, isPurgeMode);
       
       if (newBadges.length > 0) {
         badgeUpdatesBatch.update(doc(firestore, 'players', player.id), {
@@ -165,9 +179,10 @@ const cleanupProcessing = (setProcessingIds, proofId) => {
 };
 
 // ✅ OPTIMIZED: Check badge requirements using in-memory data
-const checkBadgeRequirementsInMemory = (player, alivePlayers, isBountyKill = false) => {
+const checkBadgeRequirementsInMemory = (player, alivePlayers, isBountyKill = false, isPurgeMode = false) => {
   const newBadges = [];
   const currentBadges = player.badges || [];
+
 
   // Check each badge requirement
   for (const badge of badges) {
@@ -175,6 +190,14 @@ const checkBadgeRequirementsInMemory = (player, alivePlayers, isBountyKill = fal
     if (currentBadges.includes(badge.id)) continue;
 
     let qualifies = false;
+
+    if (badge.trigger == "bounty_kill"){
+      console.log (isBountyKill, "and", player.bountyKills);
+    }
+
+    if (badge.trigger == "purge_kill"){
+      console.log (isPurgeMode, "and", player.purgeKills);
+    }
 
     switch (badge.trigger) {
       case 'kill_count':
@@ -191,20 +214,13 @@ const checkBadgeRequirementsInMemory = (player, alivePlayers, isBountyKill = fal
         break;
         
       case 'purge_kill':
-        qualifies = (player.purgeKills || 0) >= badge.requirement;
+        qualifies = isPurgeMode && (player.purgeKills || 0) >= badge.requirement;
         break;
         
       case 'survival_time':
         const joinDate = player.joinedAt?.toDate ? player.joinedAt.toDate() : new Date(player.joinedAt || Date.now());
         const daysSurvived = Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
         qualifies = daysSurvived >= badge.requirement && player.isAlive;
-        break;
-        
-      case 'game_winner':
-        // Check if only one class remains and player is in that class
-        const classesAlive = new Set(alivePlayers.map(p => p.studentClass).filter(Boolean));
-        qualifies = player.isAlive && classesAlive.size === 1 && 
-                   alivePlayers.some(p => p.id === player.id && p.studentClass === Array.from(classesAlive)[0]);
         break;
     }
 

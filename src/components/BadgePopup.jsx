@@ -57,13 +57,13 @@ export const getThemeColors = (icon, badgeId) => {
         backgroundArt: 'light'
       };
     }
-    else if (icon === '🪓' || badgeId.includes('jack')) {
+    else if (icon === '💀' || badgeId.includes('jack')) {
       return {
-        gradient: 'linear-gradient(270deg, #d97706, #f59e0b, #b45309, #fbbf24)',
-        border: '#d97706',
-        glow: 'rgba(180, 83, 9, 0.6)',
-        text: '#fff',
-        backgroundArt: 'wood'
+        gradient: 'linear-gradient(270deg, #0f0f0f, #1a1a1a, #2d2d2d, #000000)',
+        border: '#4b5563', // cold steel gray
+        glow: 'rgba(148, 0, 211, 0.6)', // spectral purple
+        text: '#e5e7eb', // light gray text
+        backgroundArt: 'graveyard' // or 'mist'
       };
     }
     // Default rainbow theme

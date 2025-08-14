@@ -48,6 +48,8 @@ const PlayerDashboard = ({ playerData }) => {
     setSelectedBadge(badge);
   };
 
+  
+
   return (
     <div className="relative h-auto py-3 px-4"> 
       <h2 className="text-2xl font-bold mb-6 border-b border-border-color pb-3 font-heading flex items-center gap-3">

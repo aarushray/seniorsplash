@@ -4,7 +4,7 @@ export const badges = [
     id: 'thanatos_touch',
     icon: '🩸',
     title: "Thanatos' Touch",
-    description: 'Your first splash marks you. The god of peaceful death smiles.',
+    description: 'FIRST BLOOD! The god of peaceful death smiles.',
     trigger: 'kill_count',
     requirement: 1,
     category: 'milestone'
@@ -22,7 +22,7 @@ export const badges = [
     id: 'wrath_of_ares',
     icon: '⚔️',
     title: 'Wrath of Ares',
-    description: "You're becoming a warrior. Blood follows wherever you go.",
+    description: "Your third kill... Blood follows wherever you go.",
     trigger: 'kill_count',
     requirement: 3,
     category: 'milestone'
@@ -58,7 +58,7 @@ export const badges = [
   },
   {
     id: 'jack_the_reaper',
-    icon: '🪓',
+    icon: '💀',
     title: 'Jack the Reaper',
     description: 'You weren\'t part of the purge. You were the purge.',
     trigger: 'purge_kill',
@@ -84,7 +84,7 @@ export const badges = [
     title: 'Poseidon\'s Blessing',
     description: 'Even the sea can\'t drown you now. You float above fate.',
     trigger: 'survival_time',
-    requirement: 10, // 10 days alive
+    requirement: 5, // 5 days alive
     category: 'survival'
   },
 

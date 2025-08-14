@@ -143,3 +143,14 @@
 .delay-300 {
   animation-delay: 0.3s;
 }
+
+/* Add this to your CSS file or as a style object/className */
+.badge-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 64px; /* or whatever your badge height is */
+  width: 64px;  /* or whatever your badge width is */
+  background: #222; /* example background */
+  border-radius: 12px;
+}
