@@ -12,10 +12,9 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       try {
-        setCurrentUser(user);
-        setLoading(false);
         if (user) {
-          // Add error handling for Firestore operations
+          // Fetch player document from Firestore
+          let isAdmin = false;
           try {
             const playerRef = doc(firestore, "players", user.uid);
             const playerSnap = await getDoc(playerRef);
@@ -30,19 +29,29 @@ export const AuthProvider = ({ children }) => {
                 createdAt: new Date(),
                 isAlive: true,
                 targetId: null,
+                isAdmin: false, // default to false on creation
               });
+            } else {
+              // Get isAdmin from Firestore
+              const playerData = playerSnap.data();
+              isAdmin = !!playerData.isAdmin;
             }
           } catch (firestoreError) {
             console.error("Error handling player document:", firestoreError);
-            // Don't block auth flow for Firestore errors
-            // User is still authenticated even if player doc creation fails
           }
+
+          // Merge isAdmin into currentUser object
+          setCurrentUser({
+            ...user,
+            isAdmin,
+          });
+        } else {
+          setCurrentUser(null);
         }
       } catch (authError) {
         console.error("Error in auth state change:", authError);
         setCurrentUser(null);
       } finally {
-        // Always set loading to false, even if there are errors
         setLoading(false);
       }
     });
@@ -55,7 +64,7 @@ export const AuthProvider = ({ children }) => {
       await signOut(auth);
     } catch (error) {
       console.error("Error during logout:", error);
-      throw error; // Re-throw so Dashboard can handle it
+      throw error;
     }
   };
 

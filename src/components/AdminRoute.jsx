@@ -16,7 +16,7 @@ const AdminRoute = ({ children }) => {
   }
 
   // Not admin - redirect to dashboard
-  if (currentUser.email !== "aarushray210207@gmail.com") {
+  if (!currentUser.isAdmin) {
     return <Navigate to="/dashboard" />;
   }
 
