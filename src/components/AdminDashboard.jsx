@@ -10,7 +10,7 @@ import { getAssassinsForPlayer } from '../utils/assassinIdentity';
 import { reassignTargetsAfterPurge } from '../utils/reassignTargetsAfterPurge';
 import { handleVerify, handleReject } from '../utils/killProofActions';
 import { updateGamePin, getGamePin, subscribeToGamePin, validateGamePin, generateRandomPin } from '../utils/gamePin';
-import { removePlayerFromGame } from '../utils/adminActions';
+import { removePlayerFromGame, revivedPlayer } from '../utils/adminActions';
 import { checkClassDomination, clearClassDominationState } from '../utils/classCheck';
 import ClassDominationPopup from './ClassDominationPopup';
 
@@ -39,6 +39,11 @@ const [isRemovingPlayer, setIsRemovingPlayer] = useState(false);
 const [showClassDomination, setShowClassDomination] = useState(false);
 const [classDominationData, setClassDominationData] = useState(null);
 const [isCheckingClass, setIsCheckingClass] = useState(false);
+
+
+const [revivePlayerByName, setRevivePlayerByName] = useState('');
+const [revivePlayerStatus, setRevivePlayerStatus] = useState('');
+const [isRevivingPlayer, setIsRevivingPlayer] = useState(false);
 
 
 
@@ -87,6 +92,44 @@ const handleRemovePlayer = async () => {
     setTimeout(() => setRemovePlayerStatus(''), 5000);
   } finally {
     setIsRemovingPlayer(false);
+  }
+};
+
+const handleRevivePlayer = async () => {
+  if (!revivePlayerByName.trim()) {
+    alert('Please enter a name');
+    return;
+  }
+
+  const confirmRevival = window.confirm(
+    `Are you sure you want to revive player with name "${revivePlayerByName}"?`
+  );
+  
+  if (!confirmRevival) return;
+  
+  setIsRevivingPlayer(true);
+  setRevivePlayerStatus('Reviving player...');
+  
+  try {
+    const result = await revivedPlayer(revivePlayerByName.trim());
+
+    if (result.success) {
+      setRevivePlayerStatus(`Successfully revived ${result.playerName} (${result.playerClass})`);
+      setRevivePlayerByName('');
+      alert(`✅ Player ${result.playerName} has been revived.`);
+      
+      // Clear status after 5 seconds
+      setTimeout(() => setRevivePlayerStatus(''), 5000);
+    }
+  } catch (error) {
+    console.error('Error reviving player:', error);
+    setRevivePlayerStatus(`Failed to revive player: ${error.message}`);
+    alert(`❌ ${error.message}`);
+    
+    // Clear status after 5 seconds
+    setTimeout(() => setRevivePlayerStatus(''), 5000);
+  } finally {
+    setIsRevivingPlayer(false);
   }
 };
 
@@ -466,6 +509,37 @@ useEffect(() => {
         removePlayerStatus.includes('Successfully') ? 'text-green-400' : 'text-red-400'
       }`}>
         {removePlayerStatus}
+      </p>
+    )}
+    <p className="text-xs text-gray-400 text-center">
+      ⚠️ Warning: This will remove the player from the game and reassign their target to their assassin(s).
+    </p>
+  </div>
+</div>
+
+<div>
+  <h2 className="text-xl font-bold text-gray-300 mb-4">✅ Revive Player</h2>
+  <div className="space-y-4">
+    <input
+      type="text"
+      value={revivePlayerByName}
+      onChange={(e) => setRevivePlayerByName(e.target.value)}
+      placeholder="Enter name..."
+      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:bg-white/20 transition-all duration-200"
+      onKeyPress={(e) => e.key === 'Enter' && handleRevivePlayer()}
+    />
+    <button 
+      onClick={handleRevivePlayer}
+      disabled={isRevivingPlayer || !revivePlayerByName.trim()}
+      className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white font-semibold rounded-2xl transition-all"
+    >
+      {isRevivingPlayer ? 'Reviving...' : '✅ Revive Player'}
+    </button>
+    {revivePlayerStatus && (
+      <p className={`mt-2 text-center text-sm ${
+        revivePlayerStatus.includes('Successfully') ? 'text-green-400' : 'text-red-400'
+      }`}>
+        {revivePlayerStatus}
       </p>
     )}
     <p className="text-xs text-gray-400 text-center">
