@@ -1,6 +1,6 @@
 export const filterPlayerData = (playerData, isOwnData = false) => {
   if (!playerData) return null;
-  
+
   const publicFields = {
     id: playerData.id,
     fullName: playerData.fullName,
@@ -10,9 +10,9 @@ export const filterPlayerData = (playerData, isOwnData = false) => {
     kills: playerData.kills || 0,
     lastKnownLocation: playerData.lastKnownLocation,
     locationUpdatedAt: playerData.locationUpdatedAt,
-    messageToKiller: playerData.messageToKiller
+    messageToKiller: playerData.messageToKiller,
   };
-  
+
   // If it's the user's own data, include additional fields
   if (isOwnData) {
     return {
@@ -25,6 +25,6 @@ export const filterPlayerData = (playerData, isOwnData = false) => {
       // Still exclude admin flags and other sensitive data
     };
   }
-  
+
   return publicFields;
 };

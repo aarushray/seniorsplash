@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { getThemeColors } from './BadgePopup';
+import React from "react";
+import { motion } from "framer-motion";
+import { getThemeColors } from "./BadgePopup";
 
 const BadgeSlot = ({ badgeInfo, isEarned }) => {
   const theme = getThemeColors(badgeInfo.icon, badgeInfo.id);
@@ -8,14 +8,18 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
   return (
     <motion.div
       className="relative flex flex-col items-center justify-center"
-      whileHover={isEarned ? {
-        scale: 1.1,
-        y: -8,
-        transition: {
-          duration: 0.2,
-          ease: "easeOut"
-        }
-      } : {}}
+      whileHover={
+        isEarned
+          ? {
+              scale: 1.1,
+              y: -8,
+              transition: {
+                duration: 0.2,
+                ease: "easeOut",
+              },
+            }
+          : {}
+      }
       whileTap={isEarned ? { scale: 0.95 } : {}}
       style={{
         zIndex: 30,
@@ -26,18 +30,25 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
         className={`
           relative w-20 h-20 rounded-xl flex items-center justify-center mb-2
           transition-all duration-300 ease-in-out
-          ${isEarned
-            ? 'bg-black/60 border-2 cursor-pointer'
-            : 'bg-gray-800/50 border-2 border-gray-600/30'
+          ${
+            isEarned
+              ? "bg-black/60 border-2 cursor-pointer"
+              : "bg-gray-800/50 border-2 border-gray-600/30"
           }
         `}
         style={{
-          borderColor: isEarned ? theme.border : '',
-          boxShadow: isEarned ? `0 0 15px ${theme.glow}60, 0 0 45px ${theme.glow}30` : 'none'
+          borderColor: isEarned ? theme.border : "",
+          boxShadow: isEarned
+            ? `0 0 15px ${theme.glow}60, 0 0 45px ${theme.glow}30`
+            : "none",
         }}
-        whileHover={isEarned ? {
-          boxShadow: `0 0 25px ${theme.glow}, 0 0 60px ${theme.glow}80, 0 0 120px ${theme.glow}40`,
-        } : {}}
+        whileHover={
+          isEarned
+            ? {
+                boxShadow: `0 0 25px ${theme.glow}, 0 0 60px ${theme.glow}80, 0 0 120px ${theme.glow}40`,
+              }
+            : {}
+        }
       >
         {/* Always-on Glow Layer */}
         {isEarned && (
@@ -47,21 +58,24 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
               background: `radial-gradient(circle, ${theme.glow} 30%, transparent 100%)`,
               opacity: 0.4,
               zIndex: -3,
-              filter: 'blur(8px)'
+              filter: "blur(8px)",
             }}
           />
         )}
 
-
         {/* Badge Icon */}
         <motion.span
-          className={`text-3xl transition-all duration-300 ${isEarned ? 'text-white' : 'text-gray-500'}`}
-          whileHover={isEarned ? {
-            textShadow: `0 0 20px ${theme.glow}`,
-            scale: 1.1
-          } : {}}
+          className={`text-3xl transition-all duration-300 ${isEarned ? "text-white" : "text-gray-500"}`}
+          whileHover={
+            isEarned
+              ? {
+                  textShadow: `0 0 20px ${theme.glow}`,
+                  scale: 1.1,
+                }
+              : {}
+          }
         >
-          {badgeInfo.icon || '🏆'}
+          {badgeInfo.icon || "🏆"}
         </motion.span>
 
         {/* Hover Radial Glow */}
@@ -70,15 +84,15 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
             className="absolute inset-0 rounded-xl opacity-60"
             style={{
               background: `radial-gradient(circle, ${theme.glow} 100%, transparent 0%)`,
-              zIndex: -1
+              zIndex: -1,
             }}
             whileHover={{
               opacity: 0.6,
               scale: 1.3,
               transition: {
                 duration: 0.2,
-                ease: "easeOut"
-              }
+                ease: "easeOut",
+              },
             }}
           />
         )}
@@ -90,7 +104,7 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
             style={{
               background: `conic-gradient(${theme.glow}, transparent, ${theme.glow})`,
               zIndex: -2,
-              filter: 'blur(12px)'
+              filter: "blur(12px)",
             }}
             whileHover={{
               opacity: 1,
@@ -99,8 +113,8 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
               transition: {
                 duration: 2,
                 ease: "linear",
-                repeat: Infinity
-              }
+                repeat: Infinity,
+              },
             }}
           />
         )}
@@ -109,22 +123,24 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
       {/* Badge Name with Glow Effect */}
       <motion.div
         className={`text-center transition-all duration-300 ${
-          isEarned ? 'opacity-100' : 'opacity-40'
+          isEarned ? "opacity-100" : "opacity-40"
         }`}
-        whileHover={isEarned ? {
-          scale: 1.05,
-          textShadow: `0 0 15px ${theme.glow}`,
-        } : {}}
+        whileHover={
+          isEarned
+            ? {
+                scale: 1.05,
+                textShadow: `0 0 15px ${theme.glow}`,
+              }
+            : {}
+        }
       >
-        <p 
+        <p
           className={`text-xs font-bold font-heading leading-tight max-w-[80px] ${
-            isEarned 
-              ? 'text-white' 
-              : 'text-gray-500'
+            isEarned ? "text-white" : "text-gray-500"
           }`}
           style={{
-            textShadow: isEarned ? `0 0 10px ${theme.glow}80` : 'none',
-            color: isEarned ? '#ffffff' : '#6b7280'
+            textShadow: isEarned ? `0 0 10px ${theme.glow}80` : "none",
+            color: isEarned ? "#ffffff" : "#6b7280",
           }}
         >
           {badgeInfo.title}
@@ -139,18 +155,21 @@ const BadgeSlot = ({ badgeInfo, isEarned }) => {
             background: `linear-gradient(135deg, ${theme.glow}20, rgba(0,0,0,0.95))`,
             border: `1px solid ${theme.border}`,
             boxShadow: `0 8px 25px ${theme.glow}60`,
-            backdropFilter: 'blur(10px)'
+            backdropFilter: "blur(10px)",
           }}
           whileHover={{
             opacity: 1,
             y: -5,
             transition: {
               delay: 0.5,
-              duration: 0.2
-            }
+              duration: 0.2,
+            },
           }}
         >
-          <div className="font-semibold text-center" style={{ color: theme.text || '#ffffff' }}>
+          <div
+            className="font-semibold text-center"
+            style={{ color: theme.text || "#ffffff" }}
+          >
             {badgeInfo.title}
           </div>
           {badgeInfo.description && (

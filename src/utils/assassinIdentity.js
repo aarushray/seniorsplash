@@ -1,5 +1,5 @@
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { firestore } from '../firebase/config';
+import { collection, getDocs, query, where } from "firebase/firestore";
+import { firestore } from "../firebase/config";
 
 /**
  * Find all players targeting a specific player
@@ -10,20 +10,19 @@ export const getAssassinsForPlayer = async (targetPlayerName) => {
   try {
     // ✅ Fetch all players in one go (same efficient pattern)
     const playersSnap = await getDocs(
-      query(
-        collection(firestore, 'players'),
-        where('isInGame', '==', true)
-      )
+      query(collection(firestore, "players"), where("isInGame", "==", true)),
     );
 
-    const allPlayers = playersSnap.docs.map(doc => ({
+    const allPlayers = playersSnap.docs.map((doc) => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
     }));
 
     // ✅ Build efficient maps in one pass
-    const nameToIdMap = Object.fromEntries(allPlayers.map(p => [p.fullName?.toLowerCase(), p.id]));
-    const playerMap = Object.fromEntries(allPlayers.map(p => [p.id, p]));
+    const nameToIdMap = Object.fromEntries(
+      allPlayers.map((p) => [p.fullName?.toLowerCase(), p.id]),
+    );
+    const playerMap = Object.fromEntries(allPlayers.map((p) => [p.id, p]));
 
     // Find target player by name (case-insensitive)
     const targetPlayerId = nameToIdMap[targetPlayerName.toLowerCase()];
@@ -32,26 +31,24 @@ export const getAssassinsForPlayer = async (targetPlayerName) => {
         success: false,
         message: `Player "${targetPlayerName}" not found`,
         target: null,
-        assassins: []
+        assassins: [],
       };
     }
 
     const targetPlayer = playerMap[targetPlayerId];
 
     // ✅ Find assassins efficiently using the map
-    const assassins = allPlayers.filter(p => 
-      p.targetId === targetPlayerId && 
-      p.isAlive && 
-      p.isInGame
-    ).map(assassin => ({
-      id: assassin.id,
-      name: assassin.fullName,
-      class: assassin.studentClass || 'Unknown',
-      kills: assassin.kills || 0,
-      splashes: assassin.splashes || 0,
-      email: assassin.email,
-      targetAssignedAt: assassin.targetAssignedAt
-    }));
+    const assassins = allPlayers
+      .filter((p) => p.targetId === targetPlayerId && p.isAlive && p.isInGame)
+      .map((assassin) => ({
+        id: assassin.id,
+        name: assassin.fullName,
+        class: assassin.studentClass || "Unknown",
+        kills: assassin.kills || 0,
+        splashes: assassin.splashes || 0,
+        email: assassin.email,
+        targetAssignedAt: assassin.targetAssignedAt,
+      }));
 
     return {
       success: true,
@@ -59,21 +56,20 @@ export const getAssassinsForPlayer = async (targetPlayerName) => {
       target: {
         id: targetPlayer.id,
         name: targetPlayer.fullName,
-        class: targetPlayer.studentClass || 'Unknown',
+        class: targetPlayer.studentClass || "Unknown",
         isAlive: targetPlayer.isAlive,
         kills: targetPlayer.kills || 0,
-        splashes: targetPlayer.splashes || 0
+        splashes: targetPlayer.splashes || 0,
       },
-      assassins: assassins
+      assassins: assassins,
     };
-
   } catch (error) {
-    console.error('Error finding assassins:', error);
+    console.error("Error finding assassins:", error);
     return {
       success: false,
       message: `Error: ${error.message}`,
       target: null,
-      assassins: []
+      assassins: [],
     };
   }
 };
@@ -86,20 +82,17 @@ export const getAllTargetingRelationships = async () => {
   try {
     // ✅ Single query for all players
     const playersSnap = await getDocs(
-      query(
-        collection(firestore, 'players'),
-        where('isInGame', '==', true)
-      )
+      query(collection(firestore, "players"), where("isInGame", "==", true)),
     );
 
-    const allPlayers = playersSnap.docs.map(doc => ({
+    const allPlayers = playersSnap.docs.map((doc) => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
     }));
 
     // ✅ Build targeting map efficiently
     const targetMap = {};
-    allPlayers.forEach(player => {
+    allPlayers.forEach((player) => {
       if (player.targetId) {
         if (!targetMap[player.targetId]) {
           targetMap[player.targetId] = [];
@@ -107,9 +100,9 @@ export const getAllTargetingRelationships = async () => {
         targetMap[player.targetId].push({
           assassinId: player.id,
           assassinName: player.fullName,
-          assassinClass: player.studentClass || 'Unknown',
+          assassinClass: player.studentClass || "Unknown",
           targetId: player.targetId,
-          targetAssignedAt: player.targetAssignedAt
+          targetAssignedAt: player.targetAssignedAt,
         });
       }
     });
@@ -119,7 +112,7 @@ export const getAllTargetingRelationships = async () => {
 
     return relationships;
   } catch (error) {
-    console.error('Error getting targeting relationships:', error);
+    console.error("Error getting targeting relationships:", error);
     return [];
   }
 };

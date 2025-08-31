@@ -1,8 +1,8 @@
-import { doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
-import { firestore } from '../firebase/config';
+import { doc, updateDoc, getDoc, onSnapshot } from "firebase/firestore";
+import { firestore } from "../firebase/config";
 
-const GAME_STATE_DOC = 'state';
-const GAME_COLLECTION = 'game';
+const GAME_STATE_DOC = "state";
+const GAME_COLLECTION = "game";
 
 /**
  * Updates the game pin in Firebase
@@ -14,11 +14,11 @@ export const updateGamePin = async (newPin) => {
     const gameStateRef = doc(firestore, GAME_COLLECTION, GAME_STATE_DOC);
     await updateDoc(gameStateRef, {
       gamePin: newPin,
-      gamePinUpdatedAt: new Date()
+      gamePinUpdatedAt: new Date(),
     });
-    console.log('Game pin updated successfully');
+    console.log("Game pin updated successfully");
   } catch (error) {
-    console.error('Error updating game pin:', error);
+    console.error("Error updating game pin:", error);
     throw error;
   }
 };
@@ -31,16 +31,16 @@ export const getGamePin = async () => {
   try {
     const gameStateRef = doc(firestore, "game", "state");
     const docSnap = await getDoc(gameStateRef);
-    
+
     if (docSnap.exists()) {
-      console.log('Game state document found:', docSnap.data());
+      console.log("Game state document found:", docSnap.data());
       return docSnap.data().gamePin || null;
     } else {
-      console.log('No game state document found');
+      console.log("No game state document found");
       return null;
     }
   } catch (error) {
-    console.error('Error getting game pin:', error);
+    console.error("Error getting game pin:", error);
     throw error;
   }
 };
@@ -52,18 +52,22 @@ export const getGamePin = async () => {
  */
 export const subscribeToGamePin = (callback) => {
   const gameStateRef = doc(firestore, GAME_COLLECTION, GAME_STATE_DOC);
-  
-  return onSnapshot(gameStateRef, (doc) => {
-    if (doc.exists()) {
-      const gamePin = doc.data().gamePin || null;
-      callback(gamePin);
-    } else {
+
+  return onSnapshot(
+    gameStateRef,
+    (doc) => {
+      if (doc.exists()) {
+        const gamePin = doc.data().gamePin || null;
+        callback(gamePin);
+      } else {
+        callback(null);
+      }
+    },
+    (error) => {
+      console.error("Error subscribing to game pin:", error);
       callback(null);
-    }
-  }, (error) => {
-    console.error('Error subscribing to game pin:', error);
-    callback(null);
-  });
+    },
+  );
 };
 
 /**

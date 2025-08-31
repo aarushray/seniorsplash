@@ -1,100 +1,97 @@
-
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { firestore } from '../firebase/config';
-import { useAuth } from '../context/AuthContext';
-import { motion } from 'framer-motion';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { firestore } from "../firebase/config";
+import { useAuth } from "../context/AuthContext";
+import { motion } from "framer-motion";
 
 const Particulars = () => {
   const { currentUser } = useAuth();
-  const [fullName, setFullName] = useState('');
-  const [studentClass, setStudentClass] = useState('');
-  const [studentId, setStudentId] = useState('');
-  const [error, setError] = useState('');
+  const [fullName, setFullName] = useState("");
+  const [studentClass, setStudentClass] = useState("");
+  const [studentId, setStudentId] = useState("");
+  const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!currentUser) {
-    navigate('/login');
-    return;
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!currentUser) {
+      navigate("/login");
+      return;
+    }
 
-  setIsSubmitting(true);
-  setError('');
+    setIsSubmitting(true);
+    setError("");
 
-  try {
-    const userRef = doc(firestore, 'players', currentUser.uid);
-    
-    const trimmedFullName = fullName.trim();
-    const trimmedStudentClass = studentClass.trim();
-    const trimmedStudentId = studentId.trim();
-    
-    // Keep using updateDoc since the document should exist
-    await updateDoc(userRef, {
-      fullName: trimmedFullName,
-      studentClass: trimmedStudentClass,
-      studentId: trimmedStudentId,
+    try {
+      const userRef = doc(firestore, "players", currentUser.uid);
 
-      
-      isAlive: true,
-      isInGame: false,
-      targetId: null,
-      
-      // Statistics that reset each game
-      kills: 0,
-      splashes: 0,
-      purgeKills: 0,
-      recentKills: [],
-      bountyKills: 0,
-      
-      
-      // Proof and verification
-      proofs: [],
-      pendingProofs: [],
+      const trimmedFullName = fullName.trim();
+      const trimmedStudentClass = studentClass.trim();
+      const trimmedStudentId = studentId.trim();
 
-      removedFromGame: false,
-      removedAt: null,
-      
-      // Timing and assignments
-      gameJoinedAt: null,
-      targetAssignedAt: null,
-      eliminatedAt: null,
-      eliminatedBy: null,
-      lastKnownLocation: '',
-      locationUpdatedAt: null,
-      
-      // Badge system
-      badges: [],
-      lastBadgeEarned: null,
-      lastBadgeTimestamp: null,
-      earnedBadges: [],
-      
-      // Profile fields that should persist
-      // fullName: KEEP
-      // email: KEEP
-      // studentClass: KEEP
-      // profilePhotoURL: KEEP
-      // avatarIndex: KEEP
-      deathMessage: null,
-      messageToKiller: null
-    });
+      // Keep using updateDoc since the document should exist
+      await updateDoc(userRef, {
+        fullName: trimmedFullName,
+        studentClass: trimmedStudentClass,
+        studentId: trimmedStudentId,
 
-    alert("Successful registeration! Let's join a game now!");
+        isAlive: true,
+        isInGame: false,
+        targetId: null,
 
-    navigate('/joingame');
-  } catch (err) {
-    setError('Failed to save your information. Please try again.');
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+        // Statistics that reset each game
+        kills: 0,
+        splashes: 0,
+        purgeKills: 0,
+        recentKills: [],
+        bountyKills: 0,
+
+        // Proof and verification
+        proofs: [],
+        pendingProofs: [],
+
+        removedFromGame: false,
+        removedAt: null,
+
+        // Timing and assignments
+        gameJoinedAt: null,
+        targetAssignedAt: null,
+        eliminatedAt: null,
+        eliminatedBy: null,
+        lastKnownLocation: "",
+        locationUpdatedAt: null,
+
+        // Badge system
+        badges: [],
+        lastBadgeEarned: null,
+        lastBadgeTimestamp: null,
+        earnedBadges: [],
+
+        // Profile fields that should persist
+        // fullName: KEEP
+        // email: KEEP
+        // studentClass: KEEP
+        // profilePhotoURL: KEEP
+        // avatarIndex: KEEP
+        deathMessage: null,
+        messageToKiller: null,
+      });
+
+      alert("Successful registeration! Let's join a game now!");
+
+      navigate("/joingame");
+    } catch (err) {
+      setError("Failed to save your information. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <>
-    <style>{`
+      <style>{`
       body {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
         background-attachment: fixed;
@@ -130,7 +127,7 @@ const handleSubmit = async (e) => {
       `}</style>
 
       <div className="min-h-screen flex items-center justify-center px-4 py-8">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
@@ -139,14 +136,14 @@ const handleSubmit = async (e) => {
           <div className="glass-card rounded-3xl p-8 shadow-2xl relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-3xl"></div>
 
-            <motion.div 
+            <motion.div
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
               className="text-center mb-8 relative z-10"
             >
               <div className="flex items-center justify-center mb-6">
-                <motion.div 
+                <motion.div
                   whileHover={{ rotate: 360 }}
                   transition={{ duration: 0.5 }}
                   className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mr-4 shadow-2xl"
@@ -154,7 +151,7 @@ const handleSubmit = async (e) => {
                   <span className="text-white text-2xl">🌊</span>
                 </motion.div>
                 <h1 className="text-4xl font-bold font-heading text-white glow-text">
-                  <span className="text-blue-400">SENIOR</span>{' '}
+                  <span className="text-blue-400">SENIOR</span>{" "}
                   <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                     SPLASH
                   </span>
@@ -164,7 +161,11 @@ const handleSubmit = async (e) => {
             </motion.div>
 
             <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
-              <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }}>
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.3 }}
+              >
                 <input
                   type="text"
                   placeholder="Full Name"
@@ -175,7 +176,11 @@ const handleSubmit = async (e) => {
                 />
               </motion.div>
 
-              <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.4 }}>
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
                 <input
                   type="text"
                   placeholder="Class format: 60X"
@@ -186,7 +191,11 @@ const handleSubmit = async (e) => {
                 />
               </motion.div>
 
-              <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.5 }}>
+              <motion.div
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              >
                 <input
                   type="text"
                   placeholder="Student ID"
@@ -198,7 +207,10 @@ const handleSubmit = async (e) => {
               </motion.div>
 
               {error && (
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
                   <div className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4 backdrop-blur-sm">
                     <p className="text-red-300 text-sm text-center">{error}</p>
                   </div>
@@ -212,11 +224,13 @@ const handleSubmit = async (e) => {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 type="submit"
-                disabled={isSubmitting || !fullName || !studentClass || !studentId}
+                disabled={
+                  isSubmitting || !fullName || !studentClass || !studentId
+                }
                 className="w-full py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-500 hover:via-purple-500 hover:to-pink-500 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl font-heading text-lg relative overflow-hidden"
               >
                 <span className="relative z-10">
-                  {isSubmitting ? 'Saving...' : '🚀 Continue to Game'}
+                  {isSubmitting ? "Saving..." : "🚀 Continue to Game"}
                 </span>
               </motion.button>
             </form>
@@ -225,8 +239,6 @@ const handleSubmit = async (e) => {
       </div>
     </>
   );
-    
-  
-  };
+};
 
 export default Particulars;

@@ -1,84 +1,90 @@
-import React from 'react';
-import confetti from 'canvas-confetti';
-import { useEffect } from 'react';
+import React from "react";
+import confetti from "canvas-confetti";
+import { useEffect } from "react";
 
 export const getThemeColors = (icon, badgeId) => {
-    if (icon === '🩸' || badgeId.includes('thanatos') || badgeId.includes('death')) {
-      return {
-        gradient: 'linear-gradient(270deg, #dc2626, #ef4444, #b91c1c, #f87171)',
-        border: '#dc2626',
-        glow: 'rgba(220, 38, 38, 0.6)',
-        text: '#fff',
-        backgroundArt: 'blood'
-      };
-    }
-    else if (icon === '🌑' || icon === '🖤' || badgeId.includes('erebus')) {
-      return {
-        gradient: 'linear-gradient(270deg, #9333ea, #a855f7, #7c3aed, #c084fc)',
-        border: '#9333ea',
-        glow: 'rgba(147, 51, 234, 0.6)',
-        text: '#fff',
-        backgroundArt: 'shadow'
-      };
-    }
-    else if (icon === '⚔️' || icon === '🔥' || badgeId.includes('ares') || badgeId.includes('hades')) {
-      return {
-        gradient: 'linear-gradient(270deg, #fb923c, #fbbf24, #f59e0b, #fde047)',
-        border: '#fb923c',
-        glow: 'rgba(251, 146, 60, 0.6)',
-        text: '#000',
-        backgroundArt: 'fire'
-      };
-    }
-    else if (icon === '🏹' || badgeId.includes('artemis')) {
-      return {
-        gradient: 'linear-gradient(270deg, #22c55e, #4ade80, #16a34a, #86efac)',
-        border: '#22c55e',
-        glow: 'rgba(34, 197, 94, 0.6)',
-        text: '#fff',
-        backgroundArt: 'nature'
-      };
-    }
-    else if (icon === '🌊' || badgeId.includes('poseidon')) {
-      return {
-        gradient: 'linear-gradient(270deg, #3b82f6, #6366f1, #2563eb, #93c5fd)',
-        border: '#3b82f6',
-        glow: 'rgba(59, 130, 246, 0.6)',
-        text: '#fff',
-        backgroundArt: 'water'
-      };
-    }
-    else if (icon === '✨' || icon === '🧵' || badgeId.includes('angel_of_light') || badgeId.includes('fates')) {
-      return {
-        gradient: 'linear-gradient(270deg, #facc15, #fde047, #eab308, #fef08a)',
-        border: '#facc15',
-        glow: 'rgba(250, 204, 21, 0.6)',
-        text: '#000',
-        backgroundArt: 'light'
-      };
-    }
-    else if (icon === '💀' || badgeId.includes('jack')) {
-      return {
-        gradient: 'linear-gradient(270deg, #0f0f0f, #1a1a1a, #2d2d2d, #000000)',
-        border: '#4b5563', // cold steel gray
-        glow: 'rgba(148, 0, 211, 0.6)', // spectral purple
-        text: '#e5e7eb', // light gray text
-        backgroundArt: 'graveyard' // or 'mist'
-      };
-    }
-    // Default rainbow theme
-    else {
-      return {
-        gradient: 'linear-gradient(270deg, #ff6ec4, #7873f5, #4ade80, #facc15)',
-        border: '#6b7280',
-        glow: 'rgba(107, 114, 128, 0.6)',
-        text: '#fff',
-        backgroundArt: 'stars'
-      };
-    }
-  };
-
-
+  if (
+    icon === "🩸" ||
+    badgeId.includes("thanatos") ||
+    badgeId.includes("death")
+  ) {
+    return {
+      gradient: "linear-gradient(270deg, #dc2626, #ef4444, #b91c1c, #f87171)",
+      border: "#dc2626",
+      glow: "rgba(220, 38, 38, 0.6)",
+      text: "#fff",
+      backgroundArt: "blood",
+    };
+  } else if (icon === "🌑" || icon === "🖤" || badgeId.includes("erebus")) {
+    return {
+      gradient: "linear-gradient(270deg, #9333ea, #a855f7, #7c3aed, #c084fc)",
+      border: "#9333ea",
+      glow: "rgba(147, 51, 234, 0.6)",
+      text: "#fff",
+      backgroundArt: "shadow",
+    };
+  } else if (
+    icon === "⚔️" ||
+    icon === "🔥" ||
+    badgeId.includes("ares") ||
+    badgeId.includes("hades")
+  ) {
+    return {
+      gradient: "linear-gradient(270deg, #fb923c, #fbbf24, #f59e0b, #fde047)",
+      border: "#fb923c",
+      glow: "rgba(251, 146, 60, 0.6)",
+      text: "#000",
+      backgroundArt: "fire",
+    };
+  } else if (icon === "🏹" || badgeId.includes("artemis")) {
+    return {
+      gradient: "linear-gradient(270deg, #22c55e, #4ade80, #16a34a, #86efac)",
+      border: "#22c55e",
+      glow: "rgba(34, 197, 94, 0.6)",
+      text: "#fff",
+      backgroundArt: "nature",
+    };
+  } else if (icon === "🌊" || badgeId.includes("poseidon")) {
+    return {
+      gradient: "linear-gradient(270deg, #3b82f6, #6366f1, #2563eb, #93c5fd)",
+      border: "#3b82f6",
+      glow: "rgba(59, 130, 246, 0.6)",
+      text: "#fff",
+      backgroundArt: "water",
+    };
+  } else if (
+    icon === "✨" ||
+    icon === "🧵" ||
+    badgeId.includes("angel_of_light") ||
+    badgeId.includes("fates")
+  ) {
+    return {
+      gradient: "linear-gradient(270deg, #facc15, #fde047, #eab308, #fef08a)",
+      border: "#facc15",
+      glow: "rgba(250, 204, 21, 0.6)",
+      text: "#000",
+      backgroundArt: "light",
+    };
+  } else if (icon === "💀" || badgeId.includes("jack")) {
+    return {
+      gradient: "linear-gradient(270deg, #0f0f0f, #1a1a1a, #2d2d2d, #000000)",
+      border: "#4b5563", // cold steel gray
+      glow: "rgba(148, 0, 211, 0.6)", // spectral purple
+      text: "#e5e7eb", // light gray text
+      backgroundArt: "graveyard", // or 'mist'
+    };
+  }
+  // Default rainbow theme
+  else {
+    return {
+      gradient: "linear-gradient(270deg, #ff6ec4, #7873f5, #4ade80, #facc15)",
+      border: "#6b7280",
+      glow: "rgba(107, 114, 128, 0.6)",
+      text: "#fff",
+      backgroundArt: "stars",
+    };
+  }
+};
 
 const BadgePopup = ({ badge, onClose }) => {
   useEffect(() => {
@@ -138,14 +144,17 @@ const BadgePopup = ({ badge, onClose }) => {
       `}</style>
 
       <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-500" onClick={onClose}></div>
-
         <div
-          className="relative badge-popup-bg badge-popup-glow popup-enter rounded-3xl p-8 shadow-2xl w-[85%] max-w-md mx-4 transform transition-all duration-500"
-        >
+          className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity duration-500"
+          onClick={onClose}
+        ></div>
+
+        <div className="relative badge-popup-bg badge-popup-glow popup-enter rounded-3xl p-8 shadow-2xl w-[85%] max-w-md mx-4 transform transition-all duration-500">
           <div
             className="absolute inset-0 pointer-events-none"
-            dangerouslySetInnerHTML={{ __html: getBackgroundArt(theme.backgroundArt) }}
+            dangerouslySetInnerHTML={{
+              __html: getBackgroundArt(theme.backgroundArt),
+            }}
           />
 
           <button
@@ -163,14 +172,14 @@ const BadgePopup = ({ badge, onClose }) => {
                   className="absolute inset-0 rounded-full blur-xl opacity-60"
                   style={{
                     background: `radial-gradient(circle, ${theme.glow} 0%, transparent 70%)`,
-                    transform: 'scale(2)'
+                    transform: "scale(2)",
                   }}
                 ></div>
                 <span
                   className="relative text-6xl block"
                   style={{
                     filter: `drop-shadow(0 0 60px ${theme.glow})`,
-                    textShadow: `0 0 80px ${theme.glow}`
+                    textShadow: `0 0 80px ${theme.glow}`,
                   }}
                 >
                   {badge.icon}
@@ -183,7 +192,7 @@ const BadgePopup = ({ badge, onClose }) => {
                 className="text-2xl font-extrabold mb-3 leading-tight"
                 style={{
                   color: theme.text,
-                  textShadow: '0 2px 6px rgba(0,0,0,0.4)'
+                  textShadow: "0 2px 6px rgba(0,0,0,0.4)",
                 }}
               >
                 {badge.title}
@@ -192,7 +201,7 @@ const BadgePopup = ({ badge, onClose }) => {
                 className="text-base opacity-95 leading-relaxed mb-5"
                 style={{
                   color: theme.text,
-                  textShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                  textShadow: "0 1px 3px rgba(0,0,0,0.3)",
                 }}
               >
                 {badge.description}

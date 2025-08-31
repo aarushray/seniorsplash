@@ -1,19 +1,19 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
-import Register from './pages/Register';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Particulars from './pages/Particulars';
-import SubmitKillProof from './pages/SubmitKillProof';
-import PrivateRoute from './components/PrivateRoute';
-import JoinGame from './pages/JoinGame';
-import AdminDashboard from './components/AdminDashboard';
-import './index.css';
-import AdminRoute from './components/AdminRoute';
-import Profile from './pages/Profile';
-import LeaderBoard from './pages/LeaderBoard';
-import KillFeed from './pages/killFeed';
-import './App.css';
+import React from "react";
+import { Routes, Route } from "react-router-dom";
+import Register from "./pages/Register";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Particulars from "./pages/Particulars";
+import SubmitKillProof from "./pages/SubmitKillProof";
+import PrivateRoute from "./components/PrivateRoute";
+import JoinGame from "./pages/JoinGame";
+import AdminDashboard from "./components/AdminDashboard";
+import "./index.css";
+import AdminRoute from "./components/AdminRoute";
+import Profile from "./pages/Profile";
+import LeaderBoard from "./pages/LeaderBoard";
+import KillFeed from "./pages/killFeed";
+import "./App.css";
 
 function App() {
   return (
@@ -40,11 +40,11 @@ function App() {
       <Route path="/joingame" element={<JoinGame />} />
       <Route
         path="/admindash"
-          element={
-            <AdminRoute>
-              <AdminDashboard />
-            </AdminRoute>
-          }
+        element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        }
       />
       <Route
         path="/profile"

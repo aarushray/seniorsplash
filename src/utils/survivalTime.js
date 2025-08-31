@@ -1,6 +1,6 @@
-import { doc, onSnapshot } from 'firebase/firestore';
-import { useEffect, useState, useRef } from 'react';
-import { firestore } from '../firebase/config';
+import { doc, onSnapshot } from "firebase/firestore";
+import { useEffect, useState, useRef } from "react";
+import { firestore } from "../firebase/config";
 
 export const useSurvivalTime = (playerData, setSurvivalTime) => {
   const [gameState, setGameState] = useState(null);
@@ -12,14 +12,14 @@ export const useSurvivalTime = (playerData, setSurvivalTime) => {
     if (!ts) return null;
     if (ts.toDate) return ts.toDate();
     if (ts instanceof Date) return ts;
-    if (typeof ts === 'string' || typeof ts === 'number') return new Date(ts);
+    if (typeof ts === "string" || typeof ts === "number") return new Date(ts);
     return null;
   };
 
   // Format time difference into readable string
-  const formatTimeDifference = (diffMs, prefix = '') => {
-    if (diffMs < 0) return '--';
-    
+  const formatTimeDifference = (diffMs, prefix = "") => {
+    if (diffMs < 0) return "--";
+
     const days = Math.floor(diffMs / 86400000);
     const hours = Math.floor((diffMs % 86400000) / 3600000);
     const minutes = Math.floor((diffMs % 3600000) / 60000);
@@ -30,23 +30,27 @@ export const useSurvivalTime = (playerData, setSurvivalTime) => {
       return `${prefix}${hours}h ${minutes}m`;
     } else if (minutes > 0) {
       return `${prefix}${minutes}m`;
-    } 
+    }
   };
 
   // Listen to game state changes in real-time
   useEffect(() => {
-    const gameStateRef = doc(firestore, 'game', 'state');
-    
-    unsubscribeRef.current = onSnapshot(gameStateRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setGameState(docSnap.data());
-      } else {
+    const gameStateRef = doc(firestore, "game", "state");
+
+    unsubscribeRef.current = onSnapshot(
+      gameStateRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setGameState(docSnap.data());
+        } else {
+          setGameState(null);
+        }
+      },
+      (error) => {
+        console.error("Error listening to game state:", error);
         setGameState(null);
-      }
-    }, (error) => {
-      console.error('Error listening to game state:', error);
-      setGameState(null);
-    });
+      },
+    );
 
     // Cleanup function
     return () => {
@@ -66,7 +70,7 @@ export const useSurvivalTime = (playerData, setSurvivalTime) => {
 
     // No player data
     if (!playerData) {
-      setSurvivalTime('--');
+      setSurvivalTime("--");
       return;
     }
 
@@ -78,27 +82,27 @@ export const useSurvivalTime = (playerData, setSurvivalTime) => {
     if (!playerData.isAlive) {
       if (eliminatedTime && joinTime) {
         const diffMs = eliminatedTime - joinTime;
-        setSurvivalTime(formatTimeDifference(diffMs, 'Survived: '));
+        setSurvivalTime(formatTimeDifference(diffMs, "Survived: "));
       } else if (eliminatedTime && gameStartTime) {
         // If no join time, use game start time
         const diffMs = eliminatedTime - gameStartTime;
-        setSurvivalTime(formatTimeDifference(diffMs, 'Survived: '));
+        setSurvivalTime(formatTimeDifference(diffMs, "Survived: "));
       } else {
-        setSurvivalTime('Eliminated');
+        setSurvivalTime("Eliminated");
       }
       return;
     }
 
     // Game hasn't started yet
     if (!gameState?.gameStarted || !gameStartTime) {
-      setSurvivalTime('Game not started');
+      setSurvivalTime("Game not started");
       return;
     }
 
     // Determine the actual start time for survival calculation
     // Use the later of game start time or player join time
     let survivalStartTime = gameStartTime;
-    
+
     if (joinTime) {
       // If player joined after game started, use join time
       // If player joined before game started, use game start time
@@ -106,7 +110,7 @@ export const useSurvivalTime = (playerData, setSurvivalTime) => {
     }
 
     if (!survivalStartTime) {
-      setSurvivalTime('No start time available');
+      setSurvivalTime("No start time available");
       return;
     }
 
@@ -114,9 +118,9 @@ export const useSurvivalTime = (playerData, setSurvivalTime) => {
     const updateSurvivalTime = () => {
       const now = new Date();
       const diffMs = now - survivalStartTime;
-      
+
       if (diffMs < 0) {
-        setSurvivalTime('--');
+        setSurvivalTime("--");
         return;
       }
 

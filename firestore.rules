@@ -1,9 +1,38 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Example: Allow read/write only if the request is from a signed-in user
+
+    // Helper function to check for admin privileges.
+    // It checks if the user has a document in the 'users' collection
+    // with a field 'isAdmin' set to true.
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Default-deny all reads and writes to ensure security.
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
+    }
+
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // READ: Allow admins to read any user document, and allow users to read their own.
+      allow read: if isAdmin() || request.auth.uid == userId;
+
+      // WRITE (Create, Update, Delete): ONLY admins can write to user documents.
+      allow write: if isAdmin();
+    }
+
+    // You can apply the same logic to other collections.
+    // For example, if you have a 'game_state' collection:
+    match /game_state/{docId} {
+      // READ: Allow any authenticated user to see the game state.
+      allow read: if request.auth != null;
+
+      // WRITE: ONLY admins can change the game state.
+      allow write: if isAdmin();
     }
   }
 }

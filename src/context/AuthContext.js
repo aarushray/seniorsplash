@@ -1,7 +1,7 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, firestore } from '../firebase/config';
+import React, { createContext, useState, useEffect, useContext } from "react";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { auth, firestore } from "../firebase/config";
 
 const AuthContext = createContext();
 
@@ -17,14 +17,14 @@ export const AuthProvider = ({ children }) => {
         if (user) {
           // Add error handling for Firestore operations
           try {
-            const playerRef = doc(firestore, 'players', user.uid);
+            const playerRef = doc(firestore, "players", user.uid);
             const playerSnap = await getDoc(playerRef);
 
             if (!playerSnap.exists()) {
               await setDoc(playerRef, {
                 uid: user.uid,
-                name: user.displayName || '',
-                fullName: user.displayName || '',
+                name: user.displayName || "",
+                fullName: user.displayName || "",
                 email: user.email,
                 photoURL: user.photoURL || null,
                 createdAt: new Date(),
@@ -33,13 +33,13 @@ export const AuthProvider = ({ children }) => {
               });
             }
           } catch (firestoreError) {
-            console.error('Error handling player document:', firestoreError);
+            console.error("Error handling player document:", firestoreError);
             // Don't block auth flow for Firestore errors
             // User is still authenticated even if player doc creation fails
           }
         }
       } catch (authError) {
-        console.error('Error in auth state change:', authError);
+        console.error("Error in auth state change:", authError);
         setCurrentUser(null);
       } finally {
         // Always set loading to false, even if there are errors
@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await signOut(auth);
     } catch (error) {
-      console.error('Error during logout:', error);
+      console.error("Error during logout:", error);
       throw error; // Re-throw so Dashboard can handle it
     }
   };
@@ -69,7 +69,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

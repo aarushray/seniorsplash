@@ -1,7 +1,12 @@
-import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
-const ClassDominationPopup = ({ isVisible, winningClass, playerCount, onClose }) => {
+const ClassDominationPopup = ({
+  isVisible,
+  winningClass,
+  playerCount,
+  onClose,
+}) => {
   return (
     <AnimatePresence>
       {isVisible && (
@@ -17,7 +22,8 @@ const ClassDominationPopup = ({ isVisible, winningClass, playerCount, onClose })
             exit={{ scale: 0.8, y: 20 }}
             className="relative bg-gradient-to-br from-cyan-900 via-blue-900 to-purple-900 border-2 border-cyan-400 rounded-3xl p-8 max-w-md mx-4 shadow-2xl"
             style={{
-              boxShadow: '0 0 50px rgba(34, 211, 238, 0.5), inset 0 0 20px rgba(34, 211, 238, 0.2)'
+              boxShadow:
+                "0 0 50px rgba(34, 211, 238, 0.5), inset 0 0 20px rgba(34, 211, 238, 0.2)",
             }}
           >
             {/* Close button */}
@@ -25,8 +31,18 @@ const ClassDominationPopup = ({ isVisible, winningClass, playerCount, onClose })
               onClick={onClose}
               className="absolute top-4 right-4 text-cyan-400 hover:text-white transition-colors duration-200"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
 
@@ -55,7 +71,8 @@ const ClassDominationPopup = ({ isVisible, winningClass, playerCount, onClose })
               {/* Player count */}
               <div className="mb-6">
                 <div className="text-lg text-cyan-300">
-                  {playerCount} {playerCount === 1 ? 'Player' : 'Players'} Remaining
+                  {playerCount} {playerCount === 1 ? "Player" : "Players"}{" "}
+                  Remaining
                 </div>
               </div>
 
@@ -67,7 +84,10 @@ const ClassDominationPopup = ({ isVisible, winningClass, playerCount, onClose })
               {/* Holographic effects */}
               <div className="absolute inset-0 pointer-events-none">
                 <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent animate-pulse"></div>
-                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent via-blue-400/5 to-transparent animate-pulse" style={{ animationDelay: '1s' }}></div>
+                <div
+                  className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-transparent via-blue-400/5 to-transparent animate-pulse"
+                  style={{ animationDelay: "1s" }}
+                ></div>
               </div>
             </div>
           </motion.div>

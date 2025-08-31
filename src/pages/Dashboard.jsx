@@ -1,16 +1,23 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, getDocs, query, collection, where } from 'firebase/firestore';
-import { firestore } from '../firebase/config';
-import PlayerDashboard from '../components/PlayerDashboard';
-import ClassDominationPopup from '../components/ClassDominationPopup';
-import { getBadgeById } from '../utils/BadgeManager'; 
-import { motion } from "framer-motion"
-import { useSurvivalTime } from '../utils/survivalTime';
-import { debounce } from 'lodash';
-import { auth } from '../firebase/config';
-
+import React, { useEffect, useState, useCallback } from "react";
+import { useAuth } from "../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  getDocs,
+  query,
+  collection,
+  where,
+} from "firebase/firestore";
+import { firestore } from "../firebase/config";
+import PlayerDashboard from "../components/PlayerDashboard";
+import ClassDominationPopup from "../components/ClassDominationPopup";
+import { getBadgeById } from "../utils/BadgeManager";
+import { motion } from "framer-motion";
+import { useSurvivalTime } from "../utils/survivalTime";
+import { debounce } from "lodash";
+import { auth } from "../firebase/config";
 
 const Dashboard = () => {
   const { currentUser, logout, loading } = useAuth();
@@ -18,22 +25,22 @@ const Dashboard = () => {
   const user = auth.currentUser;
 
   const avatars = [
-    { emoji: '🎯', name: 'Target' },
-    { emoji: '��', name: 'Wave' },
-    { emoji: '⚔️', name: 'Warrior' },
-    { emoji: '🏹', name: 'Hunter' },
-    { emoji: '��', name: 'Fire' },
-    { emoji: '💀', name: 'Skull' },
-    { emoji: '🗡️', name: 'Sword' },
-    { emoji: '🛡️', name: 'Shield' },
-    { emoji: '⚡', name: 'Lightning' },
-    { emoji: '��', name: 'Star' },
-    { emoji: '👑', name: 'Crown' },
-    { emoji: '🦅', name: 'Eagle' },
-    { emoji: '��', name: 'Wolf' },
-    { emoji: '��', name: 'Lion' },
-    { emoji: '🐉', name: 'Dragon' },
-    { emoji: '🔮', name: 'Crystal' }
+    { emoji: "🎯", name: "Target" },
+    { emoji: "��", name: "Wave" },
+    { emoji: "⚔️", name: "Warrior" },
+    { emoji: "🏹", name: "Hunter" },
+    { emoji: "��", name: "Fire" },
+    { emoji: "💀", name: "Skull" },
+    { emoji: "🗡️", name: "Sword" },
+    { emoji: "🛡️", name: "Shield" },
+    { emoji: "⚡", name: "Lightning" },
+    { emoji: "��", name: "Star" },
+    { emoji: "👑", name: "Crown" },
+    { emoji: "🦅", name: "Eagle" },
+    { emoji: "��", name: "Wolf" },
+    { emoji: "��", name: "Lion" },
+    { emoji: "🐉", name: "Dragon" },
+    { emoji: "🔮", name: "Crystal" },
   ];
 
   // --- State Management ---
@@ -41,15 +48,15 @@ const Dashboard = () => {
   const [target, setTarget] = useState(null);
   const [localLoading, setLocalLoading] = useState(true);
   const [isPurgeMode, setIsPurgeMode] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState('');
-  const [lastKnownLocation, setLastKnownLocation] = useState('');
+  const [currentLocation, setCurrentLocation] = useState("");
+  const [lastKnownLocation, setLastKnownLocation] = useState("");
   const [bountyData, setBountyData] = useState(null);
-  const [bountyTimeRemaining, setBountyTimeRemaining] = useState('');
+  const [bountyTimeRemaining, setBountyTimeRemaining] = useState("");
   const [newlyEarnedBadge, setNewlyEarnedBadge] = useState(null);
   const [showClassDomination, setShowClassDomination] = useState(false);
   const [classDominationData, setClassDominationData] = useState(null);
   const [isOffline, setIsOffline] = useState(false);
-  const [survivalTime, setSurvivalTime] = useState('--');
+  const [survivalTime, setSurvivalTime] = useState("--");
 
   useSurvivalTime(playerData, setSurvivalTime);
   // ✅ OPTIMIZED: Single useEffect that handles everything efficiently
@@ -63,9 +70,9 @@ const Dashboard = () => {
       try {
         // ✅ Fetch all data in parallel using Promise.all
         const [playerSnap, gameStateSnap, bountySnap] = await Promise.all([
-          getDoc(doc(firestore, 'players', currentUser.uid)),
-          getDoc(doc(firestore, 'game', 'state')),
-          getDoc(doc(firestore, 'game', 'bounty'))
+          getDoc(doc(firestore, "players", currentUser.uid)),
+          getDoc(doc(firestore, "game", "state")),
+          getDoc(doc(firestore, "game", "bounty")),
         ]);
 
         // Handle player data
@@ -76,14 +83,16 @@ const Dashboard = () => {
           // ✅ COMPLETE: Fetch target data if player has a target
           if (playerData.targetId) {
             try {
-              const targetSnap = await getDoc(doc(firestore, 'players', playerData.targetId));
+              const targetSnap = await getDoc(
+                doc(firestore, "players", playerData.targetId),
+              );
               if (targetSnap.exists()) {
                 setTarget(targetSnap.data());
               } else {
                 setTarget(null);
               }
             } catch (error) {
-              console.error('Error fetching target data:', error);
+              console.error("Error fetching target data:", error);
               setTarget(null);
             }
           } else {
@@ -92,11 +101,11 @@ const Dashboard = () => {
 
           // ✅ COMPLETE: Check for newly earned badges
           if (playerData?.lastBadgeEarned && playerData?.lastBadgeTimestamp) {
-            const badgeTime = playerData.lastBadgeTimestamp.toDate ? 
-              playerData.lastBadgeTimestamp.toDate() : 
-              new Date(playerData.lastBadgeTimestamp);
+            const badgeTime = playerData.lastBadgeTimestamp.toDate
+              ? playerData.lastBadgeTimestamp.toDate()
+              : new Date(playerData.lastBadgeTimestamp);
             const timeSinceBadge = Date.now() - badgeTime.getTime();
-            
+
             // If badge was earned in the last 10 seconds, show notification
             if (timeSinceBadge < 10000) {
               const badge = getBadgeById(playerData.lastBadgeEarned);
@@ -113,7 +122,7 @@ const Dashboard = () => {
         if (gameStateSnap.exists()) {
           const gameData = gameStateSnap.data();
           setIsPurgeMode(gameData.purgeMode || false);
-          
+
           // Check for class domination state
           if (gameData.classDomination) {
             setClassDominationData(gameData.classDomination);
@@ -126,7 +135,7 @@ const Dashboard = () => {
           // ✅ ADDED: Check for game start/end state
           if (gameData.gameStarted !== undefined) {
             // Handle game start/end state if needed
-            console.log('Game started:', gameData.gameStarted);
+            console.log("Game started:", gameData.gameStarted);
           }
         }
 
@@ -144,7 +153,7 @@ const Dashboard = () => {
 
         setLocalLoading(false);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error("Error fetching data:", error);
         setLocalLoading(false);
       }
     };
@@ -152,43 +161,43 @@ const Dashboard = () => {
     // Fetch immediately and poll every 30 seconds
     fetchAllData();
     const interval = setInterval(fetchAllData, 30000);
-    
+
     return () => clearInterval(interval);
   }, [currentUser]);
 
   // ✅ OPTIMIZED: Bounty countdown timer
   useEffect(() => {
     if (!bountyData?.expiresAt) {
-      setBountyTimeRemaining('');
+      setBountyTimeRemaining("");
       return;
     }
 
     const updateCountdown = () => {
       try {
-        const expiryTime = bountyData.expiresAt.toDate ? 
-          bountyData.expiresAt.toDate() : 
-          new Date(bountyData.expiresAt);
-        
+        const expiryTime = bountyData.expiresAt.toDate
+          ? bountyData.expiresAt.toDate()
+          : new Date(bountyData.expiresAt);
+
         const now = new Date();
         const diffMs = expiryTime - now;
-        
+
         if (diffMs <= 0) {
-          setBountyTimeRemaining('EXPIRED');
+          setBountyTimeRemaining("EXPIRED");
           return;
         }
-        
+
         const minutes = Math.floor(diffMs / (1000 * 60));
 
         setBountyTimeRemaining(`${minutes}m`);
       } catch (error) {
-        console.error('Error calculating countdown:', error);
-        setBountyTimeRemaining('--:--');
+        console.error("Error calculating countdown:", error);
+        setBountyTimeRemaining("--:--");
       }
     };
 
     updateCountdown();
     const interval = setInterval(updateCountdown, 60000);
-    
+
     return () => clearInterval(interval);
   }, [bountyData?.expiresAt]);
 
@@ -196,16 +205,15 @@ const Dashboard = () => {
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, []);
-
 
   // ✅ COMPLETE: Effect for Player's Last Known Location
   useEffect(() => {
@@ -218,19 +226,19 @@ const Dashboard = () => {
   const debouncedUpdateLocation = useCallback(
     debounce(async (location) => {
       if (!location.trim() || !currentUser) return;
-      
+
       try {
-        const playerRef = doc(firestore, 'players', currentUser.uid);
+        const playerRef = doc(firestore, "players", currentUser.uid);
         await updateDoc(playerRef, {
           lastKnownLocation: location.trim(),
-          locationUpdatedAt: new Date()
+          locationUpdatedAt: new Date(),
         });
-        setCurrentLocation('');
+        setCurrentLocation("");
       } catch (error) {
-        console.error('Error updating location:', error);
+        console.error("Error updating location:", error);
       }
     }, 1000),
-    [currentUser]
+    [currentUser],
   );
 
   const updateLocation = () => {
@@ -243,8 +251,8 @@ const Dashboard = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      console.log('reload fuck you');
-      navigate('/login');
+      console.log("reload fuck you");
+      navigate("/login");
     } catch (err) {
       console.error(err.message);
     }
@@ -271,14 +279,16 @@ const Dashboard = () => {
         <div className="relative">
           <div className="animate-spin text-6xl mb-6 text-accent-blue">��</div>
           <p className="text-text-primary text-xl">Entering the Arena...</p>
-          <p className="text-text-secondary text-sm mt-2">Syncing mission data...</p>
+          <p className="text-text-secondary text-sm mt-2">
+            Syncing mission data...
+          </p>
         </div>
       </div>
     );
   }
 
   if (!currentUser) {
-    navigate('/register');
+    navigate("/register");
     return null;
   }
 
@@ -481,45 +491,51 @@ const Dashboard = () => {
 
       {/* ✅ COMPLETE: Purge Mode Banner */}
       {isPurgeMode && (
-        <motion.div 
+        <motion.div
           initial={{ y: -100 }}
           animate={{ y: 0 }}
           className="bg-gradient-to-r from-red-800 via-red-600 to-red-800 p-6 text-center relative overflow-hidden"
         >
           <div className="absolute inset-0 bg-red-500/20 animate-pulse"></div>
-          <h2 className="text-3xl font-bold text-white font-heading relative z-10">⚠️ PURGE MODE ACTIVE ⚠️</h2>
-          <p className="text-yellow-300 text-lg relative z-10">All players are valid targets. Trust no one.</p>
+          <h2 className="text-3xl font-bold text-white font-heading relative z-10">
+            ⚠️ PURGE MODE ACTIVE ⚠️
+          </h2>
+          <p className="text-yellow-300 text-lg relative z-10">
+            All players are valid targets. Trust no one.
+          </p>
         </motion.div>
       )}
 
       {/* ✅ COMPLETE: Header */}
-      <motion.header 
+      <motion.header
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         className="p-8 border-b border-border-color text-center relative"
       >
         <h1 className="text-6xl font-bold font-heading glow-text">
-          <span className="text-accent-blue">SENIOR</span>{' '}
+          <span className="text-accent-blue">SENIOR</span>{" "}
           <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             SPLASH
           </span>
         </h1>
         <p className="text-text-secondary text-xl mt-2">
-          Welcome, <span className="text-accent-purple font-semibold">{playerData?.fullName || 'Agent'}</span>. 
-          One last splash, one epic memory.
+          Welcome,{" "}
+          <span className="text-accent-purple font-semibold">
+            {playerData?.fullName || "Agent"}
+          </span>
+          . One last splash, one epic memory.
         </p>
       </motion.header>
-      
+
       <main className="dashboard-grid">
         {/* ✅ COMPLETE: LEFT COLUMN */}
         <div className="column-left flex flex-col gap-6 px-4">
-          
           {/* ✅ COMPLETE: Enhanced Target Panel */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className={`glass-card mx-2 ${target ? 'target-pulse' : ''}`}
+            className={`glass-card mx-2 ${target ? "target-pulse" : ""}`}
           >
             <h2 className="text-lg font-bold mb-3 border-b border-border-color pb-2 font-heading flex items-center gap-2">
               🎯 <span className="glow-text text-accent-red">TARGET FILE</span>
@@ -532,18 +548,17 @@ const Dashboard = () => {
                   className="relative flex-shrink-0"
                 >
                   {target.profilePhotoURL ? (
-                    <img 
-                      src={target.profilePhotoURL} 
-                      alt="Target Photo" 
+                    <img
+                      src={target.profilePhotoURL}
+                      alt="Target Photo"
                       className="w-16 h-16 rounded-full object-cover border-2 border-accent-red shadow-lg"
                     />
                   ) : (
                     <div className="w-16 h-16 rounded-full border-2 border-accent-red shadow-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
                       <span className="text-2xl">
-                        {target.avatarIndex !== undefined ? 
-                          avatars[target.avatarIndex]?.emoji || '🎯' : 
-                          '🎯'
-                        }
+                        {target.avatarIndex !== undefined
+                          ? avatars[target.avatarIndex]?.emoji || "🎯"
+                          : "🎯"}
                       </span>
                     </div>
                   )}
@@ -554,7 +569,7 @@ const Dashboard = () => {
                   <p className="text-xl font-bold text-accent-red mb-2 font-heading glow-text">
                     {target.fullName}
                   </p>
-                  
+
                   {/* ✅ COMPLETE: Message */}
                   {target.messageToKiller && (
                     <div className="mb-3">
@@ -565,31 +580,38 @@ const Dashboard = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="space-y-1 text-sm">
                     <p className="text-text-secondary">
-                      <span className="text-accent-blue">Class:</span> M25{target.studentClass}
+                      <span className="text-accent-blue">Class:</span> M25
+                      {target.studentClass}
                     </p>
                     <p className="text-text-secondary">
-                      <span className="text-blue-400">Last seen:</span> 
+                      <span className="text-blue-400">Last seen:</span>
                       <span className="text-blue-300 font-semibold ml-1">
-                        {target.lastKnownLocation || 'Location unknown'}
+                        {target.lastKnownLocation || "Location unknown"}
                       </span>
                       {target.locationUpdatedAt && (
                         <span className="text-xs text-slate-400 ml-1">
-                          ({new Date(target.locationUpdatedAt.toDate()).toLocaleTimeString()})
+                          (
+                          {new Date(
+                            target.locationUpdatedAt.toDate(),
+                          ).toLocaleTimeString()}
+                          )
                         </span>
                       )}
                     </p>
                     <p className="text-text-secondary">
-                      <span className="text-red-400">Kills:</span> 
-                      <span className="text-red-400 font-bold ml-1">{target.kills || 0} 💀</span>
+                      <span className="text-red-400">Kills:</span>
+                      <span className="text-red-400 font-bold ml-1">
+                        {target.kills || 0} 💀
+                      </span>
                     </p>
                   </div>
                 </div>
               </div>
             ) : (
-              <motion.div 
+              <motion.div
                 animate={{ opacity: [0.5, 1, 0.5] }}
                 transition={{ duration: 2, repeat: Infinity }}
                 className="text-center py-6"
@@ -598,51 +620,58 @@ const Dashboard = () => {
                 <p className="text-lg text-text-secondary font-heading">
                   INCOMING TARGET ASSIGNMENT...
                 </p>
-                <p className="text-sm text-text-secondary mt-1">Prepare for battle.</p>
+                <p className="text-sm text-text-secondary mt-1">
+                  Prepare for battle.
+                </p>
               </motion.div>
             )}
           </motion.div>
 
           {/* ✅ COMPLETE: Enhanced Stats Panel */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.3 }}
             className="glass-card"
           >
             <h2 className="text-lg font-bold mb-3 border-b border-border-color pb-2 font-heading flex items-center gap-2">
-              📊 <span className="glow-text text-accent-blue">COMBAT STATS</span>
+              📊{" "}
+              <span className="glow-text text-accent-blue">COMBAT STATS</span>
             </h2>
             <div className="flex flex-col gap-3">
-              <motion.div 
+              <motion.div
                 whileHover={{ scale: 1.02 }}
                 className="bg-gradient-to-br from-purple-600 to-indigo-700 p-3 rounded-xl text-center text-white shadow-lg relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
                 <div className="relative z-10">
                   <p className="text-2xl font-bold font-heading">💀</p>
-                  <p className="text-xl font-bold mt-1">{playerData?.kills || 0}</p>
+                  <p className="text-xl font-bold mt-1">
+                    {playerData?.kills || 0}
+                  </p>
                   <p className="text-xs opacity-90">Assassinations</p>
                 </div>
               </motion.div>
-              
-              <motion.div 
+
+              <motion.div
                 whileHover={{ scale: 1.02 }}
                 className="bg-gradient-to-br from-green-600 to-emerald-700 p-3 rounded-xl text-center text-white shadow-lg relative overflow-hidden"
               >
                 <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
                 <div className="relative z-10">
-                  <p className="text-2xl font-bold">{playerData?.isAlive ? '❤️' : '💔'}</p>
+                  <p className="text-2xl font-bold">
+                    {playerData?.isAlive ? "❤️" : "💔"}
+                  </p>
                   <p className="text-xl font-bold mt-1 text-green-300 animate-pulse">
-                    {playerData?.isAlive ? 'Alive' : 'Dead'}
+                    {playerData?.isAlive ? "Alive" : "Dead"}
                   </p>
                   <p className="text-xs opacity-90">
-                    {playerData?.isAlive ? 'Stay vigilant!' : 'Game Over'}
+                    {playerData?.isAlive ? "Stay vigilant!" : "Game Over"}
                   </p>
                 </div>
               </motion.div>
-              
-              <motion.div 
+
+              <motion.div
                 whileHover={{ scale: 1.02 }}
                 className="bg-gradient-to-br from-orange-600 to-red-700 p-3 rounded-xl text-center text-white shadow-lg relative overflow-hidden"
               >
@@ -657,14 +686,14 @@ const Dashboard = () => {
           </motion.div>
 
           {/* ✅ COMPLETE: Enhanced Achievements */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.4 }}
             className="glass-card flex-grow"
           >
-            <PlayerDashboard 
-              playerData={playerData} 
+            <PlayerDashboard
+              playerData={playerData}
               target={target}
               survivalTime={survivalTime}
               newlyEarnedBadge={newlyEarnedBadge}
@@ -674,7 +703,7 @@ const Dashboard = () => {
 
           {/* ✅ COMPLETE: Badge Notification */}
           {newlyEarnedBadge && (
-            <motion.div 
+            <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0 }}
@@ -683,7 +712,9 @@ const Dashboard = () => {
               <div className="flex items-center space-x-4">
                 <span className="text-4xl">{newlyEarnedBadge.icon}</span>
                 <div>
-                  <h3 className="font-bold text-lg font-heading">🏆 BADGE EARNED!</h3>
+                  <h3 className="font-bold text-lg font-heading">
+                    🏆 BADGE EARNED!
+                  </h3>
                   <p className="text-sm">{newlyEarnedBadge.title}</p>
                 </div>
               </div>
@@ -696,13 +727,13 @@ const Dashboard = () => {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="w-full text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 shadow-2xl font-heading text-lg relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={() => navigate('/submit-proof')}
+              onClick={() => navigate("/submit-proof")}
               disabled={!playerData?.isAlive}
             >
               <span className="relative z-10">💀 SUBMIT SPLASH PROOF</span>
               <div className="absolute inset-0 bg-white/10 translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500"></div>
             </motion.button>
-            
+
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -716,13 +747,12 @@ const Dashboard = () => {
 
         {/* ✅ COMPLETE: RIGHT COLUMN */}
         <div className="column-right flex flex-col gap-8">
-          
           {/* ✅ COMPLETE: Profile Button */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-2xl font-heading text-lg relative overflow-hidden"
-            onClick={() => navigate('/profile')}
+            onClick={() => navigate("/profile")}
             title="Customize Profile"
           >
             <span className="relative z-10">⚙️ CUSTOMIZE PROFILE</span>
@@ -734,7 +764,7 @@ const Dashboard = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full text-white font-bold py-4 rounded-2xl transition-all duration-300 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-400 hover:to-orange-500 shadow-2xl font-heading text-lg relative overflow-hidden"
-            onClick={() => navigate('/leaderboard')}
+            onClick={() => navigate("/leaderboard")}
           >
             <span className="relative z-10">🏆 VIEW LEADERBOARDS</span>
             <div className="absolute inset-0 bg-white/10 translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500"></div>
@@ -745,23 +775,24 @@ const Dashboard = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="w-full text-white font-bold py-4 rounded-2xl transition-all duration-300 bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 shadow-2xl font-heading text-lg relative overflow-hidden"
-            onClick={() => navigate('/killfeed')}
+            onClick={() => navigate("/killfeed")}
           >
             <span className="relative z-10">🎯 WATCH KILL FEED</span>
             <div className="absolute inset-0 bg-white/10 translate-x-[-100%] hover:translate-x-[100%] transition-transform duration-500"></div>
           </motion.button>
 
           {/* ✅ COMPLETE: Enhanced Location Update Box */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.25 }}
             className="glass-card bg-gradient-to-br from-slate-900 to-blue-900 border-2 border-blue-800/50"
           >
             <h2 className="text-2xl font-bold mb-6 border-b border-blue-600/30 pb-3 font-heading flex items-center gap-3">
-              📍 <span className="glow-text text-blue-400">LOCATION UPDATE</span>
+              📍{" "}
+              <span className="glow-text text-blue-400">LOCATION UPDATE</span>
             </h2>
-            
+
             <div className="space-y-4">
               <div className="flex gap-3">
                 <input
@@ -770,7 +801,7 @@ const Dashboard = () => {
                   onChange={(e) => setCurrentLocation(e.target.value)}
                   placeholder="Enter your current location..."
                   className="flex-1 bg-slate-800/50 border border-blue-600/30 rounded-lg px-4 py-3 text-white placeholder-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-all"
-                  onKeyPress={(e) => e.key === 'Enter' && updateLocation()}
+                  onKeyPress={(e) => e.key === "Enter" && updateLocation()}
                 />
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -782,11 +813,12 @@ const Dashboard = () => {
                   📍 UPDATE
                 </motion.button>
               </div>
-              
+
               <div className="text-sm text-slate-300 bg-slate-800/30 rounded-lg p-3 border border-blue-600/20">
                 {lastKnownLocation && (
                   <p className="mt-2 text-blue-300">
-                    <span className="font-semibold">Last updated:</span> {lastKnownLocation}
+                    <span className="font-semibold">Last updated:</span>{" "}
+                    {lastKnownLocation}
                   </p>
                 )}
               </div>
@@ -794,20 +826,20 @@ const Dashboard = () => {
           </motion.div>
 
           {/* ✅ COMPLETE: Bounty Status Box */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.6 }}
             className={`glass-card bounty-container relative overflow-hidden border-2 transition-all duration-500 group ${
-              bountyData 
-                ? 'border-yellow-400/50 hover:border-yellow-300/70 hover:shadow-2xl hover:shadow-yellow-400/30' 
-                : 'border-gray-600/30 hover:border-gray-500/50'
+              bountyData
+                ? "border-yellow-400/50 hover:border-yellow-300/70 hover:shadow-2xl hover:shadow-yellow-400/30"
+                : "border-gray-600/30 hover:border-gray-500/50"
             }`}
             style={{
-              background: bountyData 
-                ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 193, 7, 0.05) 50%, rgba(255, 215, 0, 0.1) 100%)'
-                : 'linear-gradient(135deg, rgba(75, 85, 99, 0.1) 0%, rgba(55, 65, 81, 0.05) 50%, rgba(75, 85, 99, 0.1) 100%)',
-              backdropFilter: 'blur(20px)',
+              background: bountyData
+                ? "linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 193, 7, 0.05) 50%, rgba(255, 215, 0, 0.1) 100%)"
+                : "linear-gradient(135deg, rgba(75, 85, 99, 0.1) 0%, rgba(55, 65, 81, 0.05) 50%, rgba(75, 85, 99, 0.1) 100%)",
+              backdropFilter: "blur(20px)",
             }}
           >
             {bountyData ? (
@@ -820,9 +852,18 @@ const Dashboard = () => {
                 {/* Floating Particles Effect */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                   <div className="absolute top-2 left-4 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-60"></div>
-                  <div className="absolute top-8 right-6 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-40" style={{animationDelay: '1s'}}></div>
-                  <div className="absolute bottom-6 left-8 w-1 h-1 bg-yellow-500 rounded-full animate-ping opacity-50" style={{animationDelay: '2s'}}></div>
-                  <div className="absolute bottom-2 right-4 w-1 h-1 bg-amber-400 rounded-full animate-ping opacity-30" style={{animationDelay: '0.5s'}}></div>
+                  <div
+                    className="absolute top-8 right-6 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-40"
+                    style={{ animationDelay: "1s" }}
+                  ></div>
+                  <div
+                    className="absolute bottom-6 left-8 w-1 h-1 bg-yellow-500 rounded-full animate-ping opacity-50"
+                    style={{ animationDelay: "2s" }}
+                  ></div>
+                  <div
+                    className="absolute bottom-2 right-4 w-1 h-1 bg-amber-400 rounded-full animate-ping opacity-30"
+                    style={{ animationDelay: "0.5s" }}
+                  ></div>
                 </div>
 
                 {/* Scanning Line Effect */}
@@ -833,8 +874,12 @@ const Dashboard = () => {
                   <div className="text-center mb-6">
                     <div className="text-4xl mb-2 animate-bounce">🎯</div>
                     <h3 className="text-2xl font-bold font-heading relative">
-                      <span className="absolute inset-0 text-yellow-400 blur-sm animate-pulse">BOUNTY TARGET</span>
-                      <span className="relative text-yellow-300 glow-text">BOUNTY TARGET</span>
+                      <span className="absolute inset-0 text-yellow-400 blur-sm animate-pulse">
+                        BOUNTY TARGET
+                      </span>
+                      <span className="relative text-yellow-300 glow-text">
+                        BOUNTY TARGET
+                      </span>
                     </h3>
                     <div className="mt-2 h-0.5 bg-gradient-to-r from-transparent via-yellow-400 to-transparent animate-pulse"></div>
                   </div>
@@ -870,14 +915,26 @@ const Dashboard = () => {
                   {bountyTimeRemaining && (
                     <div className="mt-4">
                       <div className="flex items-center justify-center gap-3 mb-2">
-                        <span className="text-amber-300 font-semibold">TIME REMAINING:</span>
+                        <span className="text-amber-300 font-semibold">
+                          TIME REMAINING:
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="h-1 flex-1 bg-slate-700 rounded-full overflow-hidden relative">
                           <div className="absolute inset-0 bg-gradient-to-r from-yellow-500 via-amber-400 to-yellow-500 rounded-full animate-pulse"></div>
-                          <div className="h-full bg-gradient-to-r from-yellow-500 to-amber-400 rounded-full" style={{width: bountyTimeRemaining === 'EXPIRED' ? '0%' : '75%'}}></div>
+                          <div
+                            className="h-full bg-gradient-to-r from-yellow-500 to-amber-400 rounded-full"
+                            style={{
+                              width:
+                                bountyTimeRemaining === "EXPIRED"
+                                  ? "0%"
+                                  : "75%",
+                            }}
+                          ></div>
                         </div>
-                        <span className={`text-sm font-bold font-mono ${bountyTimeRemaining === 'EXPIRED' ? 'text-red-400' : 'text-yellow-400'}`}>
+                        <span
+                          className={`text-sm font-bold font-mono ${bountyTimeRemaining === "EXPIRED" ? "text-red-400" : "text-yellow-400"}`}
+                        >
                           {bountyTimeRemaining}
                         </span>
                       </div>
@@ -887,7 +944,8 @@ const Dashboard = () => {
                   {/* Additional Info */}
                   <div className="mt-4 text-center">
                     <p className="text-sm text-amber-200/80 italic">
-                      {bountyData.description || 'Eliminate the target to claim the prize'}
+                      {bountyData.description ||
+                        "Eliminate the target to claim the prize"}
                     </p>
                   </div>
 
@@ -913,7 +971,7 @@ const Dashboard = () => {
                   <div className="text-gray-500 text-sm italic">
                     Check back soon for high-value targets
                   </div>
-                  
+
                   {/* Inactive Corner Accents */}
                   <div className="absolute top-3 left-3 w-4 h-4 border-l-2 border-t-2 border-gray-600/40"></div>
                   <div className="absolute top-3 right-3 w-4 h-4 border-r-2 border-t-2 border-gray-600/40"></div>
@@ -925,7 +983,7 @@ const Dashboard = () => {
           </motion.div>
         </div>
       </main>
-      
+
       {/* ✅ COMPLETE: Class Domination Popup */}
       <ClassDominationPopup
         isVisible={showClassDomination}

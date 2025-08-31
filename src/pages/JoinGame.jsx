@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { firestore } from '../firebase/config';
-import { doc, updateDoc, getDoc, onSnapshot, query } from 'firebase/firestore';
-import { useAuth } from '../context/AuthContext';
-import { getGamePin } from '../utils/gamePin';
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { firestore } from "../firebase/config";
+import { doc, updateDoc, getDoc, onSnapshot, query } from "firebase/firestore";
+import { useAuth } from "../context/AuthContext";
+import { getGamePin } from "../utils/gamePin";
 
 const JoinGame = () => {
   const { currentUser } = useAuth();
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameStatus, setGameStatus] = useState(null);
@@ -17,103 +17,105 @@ const JoinGame = () => {
   const [lastJoinAttempt, setLastJoinAttempt] = useState(0);
   const navigate = useNavigate();
 
-
   useEffect(() => {
     if (!currentUser) return;
-  
-    const gameRef = doc(firestore, 'game', 'state');
-    
+
+    const gameRef = doc(firestore, "game", "state");
+
     // Real-time listener for game status
-    const unsubscribe = onSnapshot(gameRef, (gameDoc) => {
-      if (gameDoc.exists()) {
-        const data = gameDoc.data();
-        setGameStatus(data);
-        setGameStarted(data.gameStarted || false);
-      } else {
-        setGameStatus(null);
-        setGameStarted(false);
-      }
-      setIsGameStatusLoading(false);
-    }, (error) => {
-      console.error('Error listening to game status:', error);
-      setIsGameStatusLoading(false);
-    });
-  
+    const unsubscribe = onSnapshot(
+      gameRef,
+      (gameDoc) => {
+        if (gameDoc.exists()) {
+          const data = gameDoc.data();
+          setGameStatus(data);
+          setGameStarted(data.gameStarted || false);
+        } else {
+          setGameStatus(null);
+          setGameStarted(false);
+        }
+        setIsGameStatusLoading(false);
+      },
+      (error) => {
+        console.error("Error listening to game status:", error);
+        setIsGameStatusLoading(false);
+      },
+    );
+
     return () => unsubscribe();
   }, [currentUser]);
 
-// Replace the handleJoinGame function with this optimized version
-const handleJoinGame = async () => {
-  if (!currentUser) {
-    navigate('/login');
-    return;
-  }
-
-  // Use cached game status instead of fetching again
-  if (gameStatus?.gameStarted) {
-    setError('Game has already started. You cannot join now.');
-    return;
-  }
-
-  const gamePin = await getGamePin();
-  console.log('Game PIN:', gamePin);
-  console.log('Entered PIN:', pin);
-
-  if (pin !== gamePin) {
-    setError('Incorrect PIN. Please try again.');
-    return;
-  }
-
-  setIsJoining(true);
-  setError('');
-  
-  try {
-    // Direct document reference instead of query
-    const playerRef = doc(firestore, 'players', currentUser.uid);
-    
-    // Check if player exists and update
-    const playerDoc = await getDoc(playerRef);
-    if (playerDoc.exists()) {
-      await updateDoc(playerRef, {
-        isInGame: true,
-        gameJoinedAt: new Date()
-      });
-      navigate('/dashboard');
-    } else {
-      setError('Player profile not found. Please contact support.');
+  // Replace the handleJoinGame function with this optimized version
+  const handleJoinGame = async () => {
+    if (!currentUser) {
+      navigate("/login");
+      return;
     }
-  } catch (err) {
-    console.error('Error joining game:', err);
-    setError('Failed to join game. Please try again.');
-  } finally {
-    setIsJoining(false);
-  }
-};
 
+    // Use cached game status instead of fetching again
+    if (gameStatus?.gameStarted) {
+      setError("Game has already started. You cannot join now.");
+      return;
+    }
+
+    const gamePin = await getGamePin();
+    console.log("Game PIN:", gamePin);
+    console.log("Entered PIN:", pin);
+
+    if (pin !== gamePin) {
+      setError("Incorrect PIN. Please try again.");
+      return;
+    }
+
+    setIsJoining(true);
+    setError("");
+
+    try {
+      // Direct document reference instead of query
+      const playerRef = doc(firestore, "players", currentUser.uid);
+
+      // Check if player exists and update
+      const playerDoc = await getDoc(playerRef);
+      if (playerDoc.exists()) {
+        await updateDoc(playerRef, {
+          isInGame: true,
+          gameJoinedAt: new Date(),
+        });
+        navigate("/dashboard");
+      } else {
+        setError("Player profile not found. Please contact support.");
+      }
+    } catch (err) {
+      console.error("Error joining game:", err);
+      setError("Failed to join game. Please try again.");
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   // Remove handleKeyPress, use form onSubmit instead
 
   const throttledJoinGame = useCallback(async () => {
     const now = Date.now();
     const timeSinceLastAttempt = now - lastJoinAttempt;
-    
+
     // Prevent more than 3 attempts per minute
     if (joinAttempts >= 3 && timeSinceLastAttempt < 60000) {
-      setError('Too many join attempts. Please wait before trying again.');
+      setError("Too many join attempts. Please wait before trying again.");
       return;
     }
-    
+
     // Reset attempts after 1 minute
     if (timeSinceLastAttempt > 60000) {
       setJoinAttempts(0);
     }
-    
-    setJoinAttempts(prev => prev + 1);
+
+    setJoinAttempts((prev) => prev + 1);
     setLastJoinAttempt(now);
-    
+
     await handleJoinGame();
   }, [joinAttempts, lastJoinAttempt]);
-  
+
   return (
     <>
       <style>{`
@@ -207,7 +209,7 @@ const handleJoinGame = async () => {
                   <span className="text-white text-3xl">🌊</span>
                 </div>
                 <h1 className="text-4xl font-bold font-heading glow-text">
-                  <span className="text-blue-400">SENIOR</span>{' '}
+                  <span className="text-blue-400">SENIOR</span>{" "}
                   <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
                     SPLASH
                   </span>
@@ -216,7 +218,9 @@ const handleJoinGame = async () => {
               <h2 className="text-2xl font-semibold text-slate-300 font-heading tracking-wide">
                 🎯 JOIN THE BATTLE
               </h2>
-              <p className="text-slate-400 mt-2">Enter the game PIN to join the arena</p>
+              <p className="text-slate-400 mt-2">
+                Enter the game PIN to join the arena
+              </p>
             </div>
 
             {/* PIN Input Section */}
@@ -226,72 +230,83 @@ const handleJoinGame = async () => {
                 <p className="text-slate-400">Checking arena status...</p>
               </div>
             ) : (
+              // Replace your current form onSubmit with this:
+              <form
+                className="space-y-6"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const sanPin = pin.replace(/\D/g, "").slice(0, 4);
+                  setPin(sanPin); // This is still good for UI consistency
 
-// Replace your current form onSubmit with this:
-              <form className="space-y-6" onSubmit={async (e) => { 
-                e.preventDefault();
-                const sanPin = pin.replace(/\D/g, '').slice(0, 4);
-                setPin(sanPin); // This is still good for UI consistency
-                
-                // But use sanPin directly in the join logic instead of waiting for state to update
-                if (!currentUser) {
-                  navigate('/login');
-                  return;
-                }
-
-                if (gameStatus?.gameStarted) {
-                  setError('Game has already started. You cannot join now.');
-                  return;
-                }
-
-                const gamePin = await getGamePin();
-                console.log('Game PIN:', gamePin);
-                console.log('Entered PIN:', sanPin); // Use sanPin here instead of pin
-
-                if (sanPin !== gamePin) { // Use sanPin here instead of pin
-                  setError('Incorrect PIN. Please try again.');
-                  return;
-                }
-
-                // Apply throttling check
-                const now = Date.now();
-                const timeSinceLastAttempt = now - lastJoinAttempt;
-                
-                if (joinAttempts >= 3 && timeSinceLastAttempt < 60000) {
-                  setError('Too many join attempts. Please wait before trying again.');
-                  return;
-                }
-                
-                if (timeSinceLastAttempt > 60000) {
-                  setJoinAttempts(0);
-                }
-                
-                setJoinAttempts(prev => prev + 1);
-                setLastJoinAttempt(now);
-
-                setIsJoining(true);
-                setError('');
-                
-                try {
-                  const playerRef = doc(firestore, 'players', currentUser.uid);
-                  const playerDoc = await getDoc(playerRef);
-                  
-                  if (playerDoc.exists()) {
-                    await updateDoc(playerRef, {
-                      isInGame: true,
-                      gameJoinedAt: new Date()
-                    });
-                    navigate('/dashboard');
-                  } else {
-                    setError('Player profile not found. Please contact support.');
+                  // But use sanPin directly in the join logic instead of waiting for state to update
+                  if (!currentUser) {
+                    navigate("/login");
+                    return;
                   }
-                } catch (err) {
-                  console.error('Error joining game:', err);
-                  setError('Failed to join game. Please try again.');
-                } finally {
-                  setIsJoining(false);
-                }
-              }}>
+
+                  if (gameStatus?.gameStarted) {
+                    setError("Game has already started. You cannot join now.");
+                    return;
+                  }
+
+                  const gamePin = await getGamePin();
+                  console.log("Game PIN:", gamePin);
+                  console.log("Entered PIN:", sanPin); // Use sanPin here instead of pin
+
+                  if (sanPin !== gamePin) {
+                    // Use sanPin here instead of pin
+                    setError("Incorrect PIN. Please try again.");
+                    return;
+                  }
+
+                  // Apply throttling check
+                  const now = Date.now();
+                  const timeSinceLastAttempt = now - lastJoinAttempt;
+
+                  if (joinAttempts >= 3 && timeSinceLastAttempt < 60000) {
+                    setError(
+                      "Too many join attempts. Please wait before trying again.",
+                    );
+                    return;
+                  }
+
+                  if (timeSinceLastAttempt > 60000) {
+                    setJoinAttempts(0);
+                  }
+
+                  setJoinAttempts((prev) => prev + 1);
+                  setLastJoinAttempt(now);
+
+                  setIsJoining(true);
+                  setError("");
+
+                  try {
+                    const playerRef = doc(
+                      firestore,
+                      "players",
+                      currentUser.uid,
+                    );
+                    const playerDoc = await getDoc(playerRef);
+
+                    if (playerDoc.exists()) {
+                      await updateDoc(playerRef, {
+                        isInGame: true,
+                        gameJoinedAt: new Date(),
+                      });
+                      navigate("/dashboard");
+                    } else {
+                      setError(
+                        "Player profile not found. Please contact support.",
+                      );
+                    }
+                  } catch (err) {
+                    console.error("Error joining game:", err);
+                    setError("Failed to join game. Please try again.");
+                  } finally {
+                    setIsJoining(false);
+                  }
+                }}
+              >
                 <div className="relative">
                   <label className="block text-slate-300 text-sm font-semibold mb-3 uppercase tracking-wider">
                     🔐 Game PIN
@@ -301,7 +316,9 @@ const handleJoinGame = async () => {
                     placeholder="••••"
                     className="pin-input w-full px-6 py-6 rounded-2xl text-center text-3xl font-bold tracking-[0.5em] font-mono focus:outline-none placeholder-slate-500"
                     value={pin}
-                    onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    onChange={(e) =>
+                      setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                    }
                     maxLength="4"
                     required
                   />
@@ -345,9 +362,9 @@ const handleJoinGame = async () => {
             {/* Footer */}
             <div className="mt-8 text-center">
               <p className="text-slate-400 text-sm">
-                Need help?{' '}
+                Need help?{" "}
                 <button
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate("/login")}
                   className="text-pink-400 hover:text-pink-300 font-medium transition-colors duration-200 underline decoration-pink-400/50 hover:decoration-pink-300"
                 >
                   Back to Login
@@ -357,11 +374,13 @@ const handleJoinGame = async () => {
 
             {/* Status Indicator */}
             <div className="mt-6 flex items-center justify-center space-x-2">
-              <div className={`w-2 h-2 rounded-full animate-pulse ${
-                gameStarted ? 'bg-red-400' : 'bg-green-400'
-              }`}></div>
+              <div
+                className={`w-2 h-2 rounded-full animate-pulse ${
+                  gameStarted ? "bg-red-400" : "bg-green-400"
+                }`}
+              ></div>
               <span className="text-slate-400 text-xs font-mono">
-                ARENA_STATUS: {gameStarted ? 'IN_PROGRESS' : 'ACTIVE'}
+                ARENA_STATUS: {gameStarted ? "IN_PROGRESS" : "ACTIVE"}
               </span>
             </div>
           </div>

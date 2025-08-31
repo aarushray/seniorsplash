@@ -1,115 +1,120 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { auth, firestore } from '../firebase/config';
-import { motion } from 'framer-motion';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, firestore } from "../firebase/config";
+import { motion } from "framer-motion";
 
 const Register = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setIsLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
-  if (password !== confirmPassword) {
-    setError('Passwords do not match');
-    setIsLoading(false);
-    return;
-  }
-
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    // Add validation
-    if (!user || !user.uid) {
-      throw new Error('User creation failed - invalid user data');
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setIsLoading(false);
+      return;
     }
 
-    const playerRef = doc(firestore, 'players', user.uid);
-    // Use a transaction or add retry logic for critical data
-// Replace the runTransaction block with:
-await setDoc(playerRef, {
-  // Core identifiers
-  uid: user.uid,
-  email: user.email,
-  
-  // Profile information (filled later in particulars)
-  fullName: '',
-  studentClass: '',
-  studentId: '',
-  profilePhotoURL: '',
-  avatarIndex: 0,
-  messageToKiller: '',
-  
-  // Game state
-  isInGame: false,
-  isAlive: true,
-  targetId: null,
-  
-  // Location tracking
-  lastKnownLocation: '',
-  locationUpdatedAt: null,
-  
-  removedFromGame: false,
-  removedAt: null,
-  
-  // Statistics
-  kills: 0,
-  splashes: 0,
-  purgeKills: 0,
-  bountyKills: 0,
-  
-  // Game timing
-  gameJoinedAt: null,
-  createdAt: new Date(),
-  
-  // Achievements
-  badges: [],
-  recentKills: [],
-  lastBadgeEarned: null,
-  lastBadgeTimestamp: null,
-  earnedBadges: [],
-  
-  // Admin flags
-  isAdmin: false,
-});
-
-  } catch (err) {
-    console.error('Registration error:', err);
-
-      if (err.code !== 'auth/email-already-in-use' && auth.currentUser) {
     try {
-      await auth.currentUser.delete();
-      console.log('Cleaned up orphaned auth account');
-    } catch (deleteError) {
-      console.error('Failed to clean up auth account:', deleteError);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
+      const user = userCredential.user;
+
+      // Add validation
+      if (!user || !user.uid) {
+        throw new Error("User creation failed - invalid user data");
+      }
+
+      const playerRef = doc(firestore, "players", user.uid);
+      // Use a transaction or add retry logic for critical data
+      // Replace the runTransaction block with:
+      await setDoc(playerRef, {
+        // Core identifiers
+        uid: user.uid,
+        email: user.email,
+
+        // Profile information (filled later in particulars)
+        fullName: "",
+        studentClass: "",
+        studentId: "",
+        profilePhotoURL: "",
+        avatarIndex: 0,
+        messageToKiller: "",
+
+        // Game state
+        isInGame: false,
+        isAlive: true,
+        targetId: null,
+
+        // Location tracking
+        lastKnownLocation: "",
+        locationUpdatedAt: null,
+
+        removedFromGame: false,
+        removedAt: null,
+
+        // Statistics
+        kills: 0,
+        splashes: 0,
+        purgeKills: 0,
+        bountyKills: 0,
+
+        // Game timing
+        gameJoinedAt: null,
+        createdAt: new Date(),
+
+        // Achievements
+        badges: [],
+        recentKills: [],
+        lastBadgeEarned: null,
+        lastBadgeTimestamp: null,
+        earnedBadges: [],
+
+        // Admin flags
+        isAdmin: false,
+      });
+    } catch (err) {
+      console.error("Registration error:", err);
+
+      if (err.code !== "auth/email-already-in-use" && auth.currentUser) {
+        try {
+          await auth.currentUser.delete();
+          console.log("Cleaned up orphaned auth account");
+        } catch (deleteError) {
+          console.error("Failed to clean up auth account:", deleteError);
+        }
+      }
+
+      // More specific error handling
+      if (err.code === "auth/email-already-in-use") {
+        setError(
+          "This email is already registered. Please use a different email or try logging in.",
+        );
+      } else if (err.code === "auth/weak-password") {
+        setError("Password is too weak. Please choose a stronger password.");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Please enter a valid email address.");
+      } else if (err.message?.includes("User creation failed")) {
+        setError("Failed to create account. Please try again.");
+      } else {
+        setError(err.message || "Registration failed. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
     }
-    }
-    
-    // More specific error handling
-    if (err.code === 'auth/email-already-in-use') {
-      setError('This email is already registered. Please use a different email or try logging in.');
-    } else if (err.code === 'auth/weak-password') {
-      setError('Password is too weak. Please choose a stronger password.');
-    } else if (err.code === 'auth/invalid-email') {
-      setError('Please enter a valid email address.');
-    } else if (err.message?.includes('User creation failed')) {
-      setError('Failed to create account. Please try again.');
-    } else {
-      setError(err.message || 'Registration failed. Please try again.');
-    }
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   return (
     <>
@@ -152,7 +157,7 @@ await setDoc(playerRef, {
       `}</style>
 
       <div className="min-h-screen flex items-center justify-center px-4 py-12">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5 }}
@@ -161,7 +166,7 @@ await setDoc(playerRef, {
           <div className="glass-card rounded-3xl p-8 shadow-2xl relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-3xl"></div>
 
-            <motion.div 
+            <motion.div
               initial={{ y: -20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
@@ -171,32 +176,40 @@ await setDoc(playerRef, {
                 <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center mr-3">
                   <span className="text-white text-xl">🌊</span>
                 </div>
-                <h1 className="text-3xl font-bold font-heading glow-text text-white">Senior Splash</h1>
+                <h1 className="text-3xl font-bold font-heading glow-text text-white">
+                  Senior Splash
+                </h1>
               </div>
-              <h2 className="text-xl font-semibold text-gray-300">Create an Account</h2>
+              <h2 className="text-xl font-semibold text-gray-300">
+                Create an Account
+              </h2>
             </motion.div>
 
             <form onSubmit={handleSubmit} className="space-y-6 relative z-10">
-              {[{
-                id: 'email',
-                type: 'email',
-                value: email,
-                onChange: setEmail,
-                placeholder: 'Email or username'
-              }, {
-                id: 'password',
-                type: 'password',
-                value: password,
-                onChange: setPassword,
-                placeholder: 'Password'
-              }, {
-                id: 'confirmPassword',
-                type: 'password',
-                value: confirmPassword,
-                onChange: setConfirmPassword,
-                placeholder: 'Confirm Password'
-              }].map(({ id, type, value, onChange, placeholder }, i) => (
-                <motion.div 
+              {[
+                {
+                  id: "email",
+                  type: "email",
+                  value: email,
+                  onChange: setEmail,
+                  placeholder: "Email or username",
+                },
+                {
+                  id: "password",
+                  type: "password",
+                  value: password,
+                  onChange: setPassword,
+                  placeholder: "Password",
+                },
+                {
+                  id: "confirmPassword",
+                  type: "password",
+                  value: confirmPassword,
+                  onChange: setConfirmPassword,
+                  placeholder: "Confirm Password",
+                },
+              ].map(({ id, type, value, onChange, placeholder }, i) => (
+                <motion.div
                   key={id}
                   initial={{ x: -20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
@@ -216,7 +229,7 @@ await setDoc(playerRef, {
               ))}
 
               {error && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="bg-red-500/20 border border-red-500/50 rounded-2xl p-4 backdrop-blur-sm"
@@ -235,20 +248,20 @@ await setDoc(playerRef, {
                 disabled={isLoading}
                 className="w-full py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 hover:from-blue-500 hover:via-purple-500 hover:to-pink-500 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-2xl font-heading text-lg relative overflow-hidden"
               >
-                {isLoading ? '🚧 Creating Account...' : '🚀 Register'}
+                {isLoading ? "🚧 Creating Account..." : "🚀 Register"}
               </motion.button>
             </form>
 
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.7 }}
               className="mt-8 text-center space-y-4 relative z-10"
             >
               <p className="text-gray-400 text-sm">
-                Already have an account?{' '}
+                Already have an account?{" "}
                 <button
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate("/login")}
                   className="text-pink-400 hover:text-pink-300 font-medium transition-colors duration-200 glow-text"
                 >
                   Log In
