@@ -1,7 +1,5 @@
 import {
   collection,
-  addDoc,
-  Timestamp,
   setDoc,
   doc,
   updateDoc,
@@ -197,6 +195,55 @@ export const revivedPlayer = async (fullName) => {
       isAlive: true,
       removedAt: null,
       removedBy: null,
+    });
+
+    const results = {
+      revivedPlayer: player.fullName,
+      playerId: playerId,
+      message: `Player "${player.fullName}" successfully revived`,
+    };
+
+    return results;
+  } catch (error) {
+    console.error("Error reviving player:", error);
+    throw error;
+  }
+};
+
+
+export const makeAdmin = async (fullName) => {
+  try {
+    const playersSnap = await getDocs(
+      query(
+        collection(firestore, "players"),
+        where("isInGame", "==", true),
+        where("isAlive", "==", true),
+      ),
+    );
+
+    const allPlayers = playersSnap.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    const nameToIdMap = Object.fromEntries(
+      allPlayers.map((p) => [p.fullName?.toLowerCase(), p.id]),
+    );
+
+    // Find player by name (case-insensitive)
+    const playerId = nameToIdMap[fullName.toLowerCase()];
+    if (!playerId) {
+      throw new Error(`Player "${fullName}" doesn't exist`);
+    }
+
+    const player = allPlayers.find((p) => p.id === playerId);
+    if (!player.isInGame) {
+      throw new Error(`Player "${fullName}" is currently not in a game`);
+    }
+
+    // ✅ Simple removal - no target reassignment needed
+    await updateDoc(doc(firestore, "players", playerId), {
+      isAdmin: true
     });
 
     const results = {
