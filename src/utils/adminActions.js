@@ -162,7 +162,6 @@ export const revivedPlayer = async (fullName) => {
     const playersSnap = await getDocs(
       query(
         collection(firestore, "players"),
-        where("isInGame", "==", false),
         where("isAlive", "==", false),
       ),
     );
